@@ -5,56 +5,66 @@
 // universal function that can be applied to 
 // vectors represented with simple js array.
 
-function vecAdd( a, b ){
-	var result = [];
-	for(var i = 0; i < a.length; i++){
-		result.push( a[i] + b[i] );
-	}
-	return result;
+function Vec2(x,y){
+	this.data = new Float32Array([x,y]);
 }
-
-function vecSub( a, b ){
-	var result = [];
-	for(var i = 0; i < a.length; i++){
-		result.push( a[i] - b[i] );
-	}
-	return result;
-}
-
-function vecMul( a, b ){
-	var result = [];
-	for(var i = 0; i < a.length; i++){
-		result.push( a[i] * b[i] );
-	}
-	return result;
-}
-
-function vecDiv( a, b ){
-	var result = [];
-	for(var i = 0; i < a.length; i++){
-		result.push( a[i] / b[i] );
-	}
-	return result;
-}
-
-function vecMagnitudeSqr( v ){
-	var s = 0;
-	for(var i = 0; i < v.length; i++){
-		s += v[i] * v[i];
-	}
-	return s;
-}
-
-function vecMagnitude( v ){
-	return Math.sqrt(v);
-}
-
-function vecNormalize( v ){
-	var r = v;
-	var m = vecMagnitude(v);
-	for(var i = 0; i < v.length; i++){
-		r[i] /= m;
-	}
-	return r;
-}
-
+Object.defineProperty(Vec2, "x", {
+	get : function(){return this.data[0];},
+	set : function(v){this.data[0] = v;}
+});
+Object.defineProperty(Vec2, "y", {
+	get : function(){return this.data[1];},
+	set : function(v){this.data[1] = v;}
+});
+Vec2.prototype.Add = function( other ){
+	this.data[0] += other.data[0];
+	this.data[1] += other.data[1];
+	return this;
+};
+Vec2.prototype.Sub = function( other ){
+	this.data[0] -= other.data[0];
+	this.data[1] -= other.data[1];
+	return this;
+};
+Vec2.prototype.Mul = function( other ){
+	this.data[0] *= other.data[0];
+	this.data[1] *= other.data[1];
+	return this;
+};
+Vec2.prototype.Div = function( other ){
+	this.data[0] /= other.data[0];
+	this.data[1] /= other.data[1];
+	return this;
+};
+Vec2.prototype.AddScalar = function( other ){
+	this.data[0] += other;
+	this.data[1] += other;
+	return this;
+};
+Vec2.prototype.SubScalar = function( other ){
+	this.data[0] -= other;
+	this.data[1] -= other;
+	return this;
+};
+Vec2.prototype.MulScalar = function( other ){
+	this.data[0] *= other;
+	this.data[1] *= other;
+	return this;
+};
+Vec2.prototype.DivScalar = function( other ){
+	this.data[0] /= other;
+	this.data[1] /= other;
+	return this;
+};
+Vec2.prototype.MagnitudeSqr = function(){
+	return this.data[0]*this.data[0] + this.data[1]*this.data[1];
+};
+Vec2.prototype.Magnitude = function(){
+	return Math.sqrt( this.MagnitudeSqr() );
+};
+Vec2.prototype.Normalize = function( other ){
+	var m = this.Magnitude();
+	this.data[0] /= m;
+	this.data[1] /= m;
+	return this;
+};
