@@ -10,12 +10,30 @@
 				top:0;
 			}
 		</style>
-		<script src="Bezier/bezier.js"></script>
-		<script src="Utils/vectormath.js"></script>
+		<script src="TwoDee/twodee.js"></script>
 	</head>
 	<body>
 		<canvas id="screen"></canvas>
 		<script>
+			
+			// Setting up twodee engine 
+			var canvas = document.getElementById("screen");
+			var renderer = new twodee.Renderer(canvas);
+			var scene = new twodee.Scene();
+			
+			function loop(){
+				requestAnimationFrame(loop);
+				scene.Update();
+				renderer.Render(scene);
+			}
+			
+			loop();
+			
+			// Creating a new object for rendering Bezier curve object
+			
+			
+			var curve = new twodee.BezierCurve();
+			scene.Add(curve);
 			
 		</script>
 	</body>
