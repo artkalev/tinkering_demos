@@ -2,7 +2,7 @@
 <html>
 	<head>
 		<style>
-			#screen{
+			canvas{
 				width : 100%;
 				height: 100%;
 				position:absolute;
@@ -10,31 +10,93 @@
 				top:0;
 			}
 		</style>
-		<script src="TwoDee/twodee.js"></script>
+		<script src="lib/three.min.js"></script>
 	</head>
 	<body>
-		<canvas id="screen"></canvas>
 		<script>
-			
-			// Setting up twodee engine 
-			var canvas = document.getElementById("screen");
-			var renderer = new twodee.Renderer(canvas);
-			var scene = new twodee.Scene();
-			
-			function loop(){
-				requestAnimationFrame(loop);
-				scene.Update();
-				renderer.Render(scene);
+		
+			// Bezier interpolation functions
+			function QuadraticBezierInterpolate(p0,p1,p2,t){
+				return (1-t)*((1-t)*p0+t*p1) + t*((1-t)*p1+t*p2);
 			}
 			
-			loop();
+		</script>
+		<script>
+			var scene = new THREE.Scene();
+			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
 			
-			// Creating a new object for rendering Bezier curve object
+			var renderer = new THREE.WebGLRenderer();
+			renderer.setSize( window.innerWidth, window.innerHeight );
+			document.body.appendChild( renderer.domElement );
 			
+			camera.position.z = 5;
 			
-			var curve = new twodee.BezierCurve();
-			scene.Add(curve);
+			var lineMesh = new THREE.Geometry();
 			
+			var controlPoints = [
+				new THREE.Vector3( -1,0,0 ),
+				new THREE.Vector3(  0,1,0 ),
+				new THREE.Vector3(  1,0,0 )
+			];
+			
+			var axesHelper0 = new THREE.AxesHelper( 0.1 );
+			axesHelper0.position.copy( controlPoints[0] );
+			scene.add(axesHelper0);
+			
+			var axesHelper1 = new THREE.AxesHelper( 0.1 );
+			axesHelper1.position.copy( controlPoints[1] );
+			scene.add(axesHelper1);
+			
+			var axesHelper2 = new THREE.AxesHelper( 0.1 );
+			axesHelper2.position.copy( controlPoints[2] );
+			scene.add(axesHelper2);
+			
+			for(var i = 0; i < 64; i++){
+				var p = new THREE.Vector3(
+					QuadraticBezierInterpolate( controlPoints[0].x, controlPoints[1].x, controlPoints[2].x, i/64 ),
+					QuadraticBezierInterpolate( controlPoints[0].y, controlPoints[1].y, controlPoints[2].y, i/64 ),
+					QuadraticBezierInterpolate( controlPoints[0].z, controlPoints[1].z, controlPoints[2].z, i/64 )
+				);
+				lineMesh.vertices.push( p );
+			}
+			
+			var line = new THREE.Line(
+				lineMesh,
+				new THREE.LineBasicMaterial({color:0x00ffff})
+			);
+			
+			scene.add(line);
+			var t = 0;
+			var animate = function () {
+				requestAnimationFrame( animate );
+				
+				controlPoints[1].set( Math.cos(t)*0.9,Math.sin(t),0 );
+				axesHelper1.position.copy(controlPoints[1]);
+				
+				for(var i = 0; i < 64; i++){
+					var p = new THREE.Vector3(
+						QuadraticBezierInterpolate( controlPoints[0].x, controlPoints[1].x, controlPoints[2].x, i/64 ),
+						QuadraticBezierInterpolate( controlPoints[0].y, controlPoints[1].y, controlPoints[2].y, i/64 ),
+						QuadraticBezierInterpolate( controlPoints[0].z, controlPoints[1].z, controlPoints[2].z, i/64 )
+					);
+					lineMesh.vertices[i].copy(p);
+				}
+				lineMesh.verticesNeedUpdate = true;
+				
+				renderer.render(scene, camera);
+				t += 0.01;
+			};
+			
+			animate();
+			
+			window.addEventListener("resize", function(){
+				renderer.setSize(
+					window.innerWidth,
+					window.innerHeight
+				);
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix ();
+			});
 		</script>
 	</body>
 </html>
