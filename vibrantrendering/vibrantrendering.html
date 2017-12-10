@@ -23,31 +23,13 @@
 			camera.position.y = 2;
 			
 			var octostone = {
-				albedo : null
+				albedo : new THREE.TextureLoader("../assets/textures/octostoneAlbedo.png")
 			};
 			
 			var mat0 = new THREE.MeshStandardMaterial({
-				color : 0xffffff
+				color : 0xffffff,
+				map : octosone.albedo
 			});
-			
-			var loader = new THREE.TextureLoader();
-			loader.setCrossOrigin( 'anonymous' );
-			loader.load(
-				"../assets/textures/octostoneAlbedo.png",
-				function(tex){
-					octostone.albedo = tex;
-					mat0.map = octostone.albedo;
-					console.log(tex);
-				},
-				function(){},
-				function(e){
-					console.log(e);
-				}
-			);
-			
-			
-			
-			
 			
 			var floor = new THREE.Mesh(
 				new THREE.PlaneGeometry(5,5),
