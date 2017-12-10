@@ -11,16 +11,9 @@
 			}
 		</style>
 		<script src="../lib/three.min.js"></script>
+		<script src="bezier.js"></script>
 	</head>
 	<body>
-		<script>
-		
-			// Bezier interpolation functions
-			function QuadraticBezierInterpolate(p0,p1,p2,t){
-				return (1-t)*((1-t)*p0+t*p1) + t*((1-t)*p1+t*p2);
-			}
-			
-		</script>
 		<script>
 			var scene = new THREE.Scene();
 			var camera = new THREE.OrthographicCamera( -1.5,1.5,1.5,-1.5, 0.1,100.0 );
