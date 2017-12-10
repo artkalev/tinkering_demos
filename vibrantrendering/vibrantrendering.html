@@ -1,82 +1,130 @@
 <!doctype>
 <html>
 	<head>
-		<style>
-			canvas{
-				width : 100%;
-				height: 100%;
-				position:absolute;
-				left:0;
-				top:0;
+		<script>
+			var gl = null;
+			var canvas = null;
+			var CORE = {};
+			
+			CORE.init = function(){
+				canvas = document.createElement("canvas");
+				canvas.style.width = "100%";
+				canvas.style.height = "100%";
+				document.body.appendChild( canvas );
+				
+				gl = canvas.getContext("webgl");
+				if(!gl){ alert("No WebGL support"); return; }
+				
+				CORE.scene = new CORE.Obj("scene");
+				
+				CORE.update();
+			};
+			
+			CORE.update = function(){
+				requestAnimationFrame( CORE.update );
+				CORE.render();
+			};
+			
+			CORE.render = function(){
+				
+			};
+			
+			CORE.Material = class Material{
+				constructor(){
+					this.program = null;
+					this.uniforms = {};
+				}
+			};
+			
+			CORE.Texture = class Texture{
+				constructor(){
+					
+				}
+			};
+			
+			CORE.Mesh = class Mesh{
+				constructor(){
+					this.attributes = [];
+					this.vertexCount = 0;
+				}
+				SetAttribute(name, data, size, type, normalized){
+					var attr = null;
+					for(var i = 0; i < this.attributes.length; i++){
+						if(this.attributes[i].name == name){
+							attr = this.attributes[i];
+							break;
+						}
+					}
+					if(attr == null){
+						attr = {
+							index : this.attributes.length,
+							name : name,
+							data : data,
+							type : type,
+							normalized : normalized,
+							buffer : gl.createBuffer()
+						};
+						this.attributes.push(attr);
+					}
+					attr.data = data;
+					attr.size = size;
+					attr.type = type;
+					attr.normalized = normalized;
+					
+					gl.bindBuffer(gl.ARRAY_BUFFER, attr.buffer);
+					gl.bufferData(gl.ARRAY_BUFFER, attr.data, gl.STATIC_DRAW);
+					gl.enableVertexAttribArray(attr.index);
+				}
+				SetVertices( data ){
+					this.SetAttribute( "vertex", data, 3, gl.FLOAT, false );
+					this.vertexCount = data.length / 3;
+				}
+				Draw(){
+					for(var i = 0; i < data.attributes.length; i++){
+						var attr = data.attributes[i];
+						gl.vertexAttribPointer( attr.index, attr.size, attr.type, attr.normalized, 0, 0 );
+					}
+				}
+			};
+			
+			CORE.Obj = class Obj{
+				constructor(name){
+					this.name = name;
+					this.position = new Float32Array([0,0,0]);
+					this.rotation = new Float32Array([0,0,0,1]);
+					this.scale = new Float32Array([1,1,1]);
+					this.localToWorld = new Float32Array([ 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 ]);
+					this.parent = null;
+					this.children = [];
+					this.mesh = null;
+					this.material = null;
+				}
+			};
+			
+			CORE.Camera = class Camera extends CORE.Obj{
+				constructor(){
+					super();
+				}
 			}
-		</style>
-		<script src="../lib/three.min.js"></script>
+				
+			CORE.MeshObj = class MeshObj extends CORE.Obj{
+				constructor(){
+					super();
+				}
+			};
+		</script>
 	</head>
 	<body>
 		<script>
-			var scene = new THREE.Scene();
-			var camera = new THREE.PerspectiveCamera( 90, window.innerWidth/window.innerHeight, 0.1, 100.0 );
-			var renderer = new THREE.WebGLRenderer();
-			renderer.setSize( window.innerWidth, window.innerHeight );
-			document.body.appendChild( renderer.domElement );
-			camera.position.z = 5;
-			camera.position.y = 2;
-			
-			var octostone = {
-				albedo : null
-			};
-			
-			var mat0 = new THREE.MeshBasicMaterial({
-				color : 0xffffff
-			});
-			
-			var loader = new THREE.TextureLoader();
-			loader.setCrossOrigin( 'anonymous' );
-			loader.load(
-				"../assets/textures/octostoneAlbedo.png",
-				function(tex){
-					octostone.albedo = tex;
-					mat0.map = octostone.albedo;
-					console.log(tex);
-				},
-				function(){},
-				function(e){
-					console.log(e);
-				}
+			CORE.init();
+			var plane = new CORE.Mesh();
+			plane.SetAttribute(
+				"vertex", 
+				new Float32Array([ -1,-1,0, 1,-1,0, 1,1,0, -1,-1,0, -1,1,0, 1,1,0 ]),
+				3,
+				false
 			);
-			
-			
-			
-			
-			
-			var floor = new THREE.Mesh(
-				new THREE.PlaneGeometry(5,5),
-				mat0
-			);
-			floor.rotation.x = -Math.PI/2;
-			
-			var light0 = new THREE.PointLight();
-			light0.position.set(0,1,0);
-			
-			scene.add(light0);
-			scene.add(floor);
-			
-			function loop(){
-				requestAnimationFrame(loop);
-				
-				renderer.render(scene,camera);
-			}
-			loop();
-			
-			function resize(){
-				renderer.setSize(
-					window.innerWidth,
-					window.innerHeight
-				);
-				camera.aspect = window.innerWidth / window.innerHeight;
-			}
-			
-			window.addEventListener( "resize", resize );
+			console.log(plane);
 		</script>
 	</body>
 </html>
