@@ -2,50 +2,357 @@
 <html>
 	<head>
 		<script>
+			////////////////////////////////////////////
+			////                                    ////
+			////  UNIVERSAL VECTOR AND MATRIX MATH  ////
+			////                                    ////
+			////////////////////////////////////////////
+			
+			// 3D VECTOR AND MATRIX MATH ON Float32Array represented types
+			// vector2 = Float32Array([0,0])
+			// vector3 = Float32Array([0,0,0])
+			// vector4 = Float32Array([0,0,0,0])
+			// quaternion = Float32Array([0,0,0,1])
+			// matrix3x3 = Float32Array([ 1,0,0, 0,1,0, 0,0,1 ])
+			// matrix4x4 = Float32Array([ 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 ])
+			
+			// VECTOR OPS
+			// vector operations assume same length vectors!
+			function VecAdd(a,b){ for(var i = 0; i < a.length; i++){ a[i] += b[i]; } return a; }
+			function VecSub(a,b){ for(var i = 0; i < a.length; i++){ a[i] -= b[i]; } return a; }
+			function VecMul(a,b){ for(var i = 0; i < a.length; i++){ a[i] *= b[i]; } return a; }
+			function VecDiv(a,b){ for(var i = 0; i < a.length; i++){ a[i] /= b[i]; } return a; }
+			function VecLengthSqr(v){ var s = 0; for(var i=0; i < v.length; i++){ s += v[i]*v[i]; } return s; }
+			function VecLength(v){ var s = 0; for(var i=0; i < v.length; i++){ s += v[i]*v[i]; } return Math.sqrt(s); }
+			function VecNormalize(v){ var l = VecLength(v); for(var i = 0; i < v.length; i++){ v[i] /= l; } return v; }
+			function VecEqual(a,b){ for(var i = 0; i < a.length; i++){ if(a[i] != b[i]){ return false; } } return true; }
+			
+			// QUATERNION OPS
+			function QuatFromAxisAngle( v, a ){
+				// todo
+			}
+			function QuatFromEuler( v ){
+				// angles are in radians
+				var c1 = Math.cos(v[1]/2);
+				var s1 = Math.sin(v[1]/2);
+				var c2 = Math.cos(v[0]/2);
+				var s2 = Math.sin(v[0]/2);
+				var c3 = Math.cos(v[2]/2);
+				var s3 = Math.sin(v[2]/2);
+				var c1c2 = c1*c2;
+				var s1s2 = s1*s2;
+				return new Float32Array([
+					c1c2*c3 - s1s2*s3,
+					c1c2*s3 + s1s2*c3,
+					s1*c2*c3 + c1*s2*s3,
+					c1*s2*c3 - s1*c2*s3
+				]);
+			}
+			function QuatToEuler( q ){
+				// todo
+			}
+			function QuatLookRotation( target, up ){
+				// todo
+			}
+			
+			// MATRIX OPS
+			// matrix operations assume same size matrices!
+			// also matrices are in column major format for opengl compatibility!
+			// 4x4 matrix ref:
+			//      +----+----+----+----+                  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+			//  X>  |  0 |  4 |  8 | 12 |   Float32Array > | 0| 1| 2| 3| 4| 5| 6| 7| 8| 9|10|11|12|13|14|15|
+			//      +----+----+----+----+                  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+			//  Y>  |  1 |  5 |  9 | 13 |
+			//      +----+----+----+----+
+			//  Z>  |  2 |  6 | 10 | 14 |
+			//      +----+----+----+----+
+			//  W>  |  3 |  7 | 11 | 15 |
+			//      +----+----+----+----+
+			//
+			function MatMul( a, b ){
+				var m = new Float32Array(a.length);
+				for(var x = 0; x < 4; x++){
+					for(var y = 0; y < 4; y++){
+						for(var z = 0; z < 4; z++){
+							m[x+y*4] += a[x + z*4] * b[ z + y*4 ];
+						}
+					}
+				}
+				return m;
+			}
+			function Mat3FromQuat( q ){
+				var q = VecNormalize(q);
+				var m = new Float32Array([
+					1-2*q[1]*q[1] - 2*q[2]*q[2] , 2*q[0]*q[1] - 2*q[2]*q[3] , 2*q[0]*q[2] + 2*q[1]*q[3],
+					2*q[0]*q[1] + 2*q[2]*q[3]   , 1-2*q[0]*q[0]-2*q[2]*q[2] , 2*q[1]*q[2]-2*q[0]*q[3],
+					2*q[0]*q[z]-2*q[1]*q[3]     , 2*q[1]*q[2]+2*q[0]*q[3]   , 1-2*q[0]*q[0]-2*q[1]*q[1]
+				]);
+				return m;
+			}
+			function Mat4FromQuat( q ){
+				var q = VecNormalize(q);
+				var m = new Float32Array([
+					1-2*q[1]*q[1] - 2*q[2]*q[2] , 2*q[0]*q[1] - 2*q[2]*q[3] , 2*q[0]*q[2] + 2*q[1]*q[3] , 0,
+					2*q[0]*q[1] + 2*q[2]*q[3]   , 1-2*q[0]*q[0]-2*q[2]*q[2] , 2*q[1]*q[2]-2*q[0]*q[3] , 0,
+					2*q[0]*q[2]-2*q[1]*q[3]     , 2*q[1]*q[2]+2*q[0]*q[3]   , 1-2*q[0]*q[0]-2*q[1]*q[1] , 0,
+					0,0,0,1
+				]);
+				return m;
+			}
+			function Mat4FromTRS( translation, rotation, scale ){
+				var T = new Float32Array([
+					1,0,0,0,
+					0,1,0,0,
+					0,0,1,0,
+					translation[0],translation[1],translation[2],1
+				]);
+				var R = Mat4FromQuat(rotation);
+				var S = new Float32Array([
+					scale[0],0,0,0,
+					0,scale[1],0,0,
+					0,0,scale[2],0,
+					0,0,0,1
+				]);
+				return MatMul( MatMul( S, T ), R );
+			}
+			
+			function Mat4Perspective( fov, aspect, near, far ){
+				var M = new Float32Array([0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]);
+				var scale = 1 / Math.tan(fov * 0.5 * Math.PI / 180); 
+				M[0] = scale * aspect;
+				M[5] = scale;
+				M[10] = -far / (far - near);
+				M[14] = -far * near / (far - near);
+				M[11] = -1;
+				M[15] = 0;
+				return M;
+			}
+			
+			function isPowerOf2(value) {
+				return (value & (value - 1)) == 0;
+			}
+			
+			/////////////////////////////////////////////
+			////                                     ////
+			////    WEBGL RENDERING ENGINE : CORE    ////
+			////                                     ////
+			/////////////////////////////////////////////
+			
 			var gl = null;
 			var canvas = null;
 			var CORE = {};
-
-			CORE.init = function(){
+			
+			// globalEnums
+			// uniform types
+			CORE.UNIFORM_MAT4 = 0;
+			CORE.UNIFORM_TEX = 1;
+			
+			// global vars start
+			CORE.resolutionScaling = 1.0;
+			CORE.scene = null;
+			CORE.time = 0; // ms
+			CORE.deltaTime = 0;
+			CORE._lastTime = 0;
+			CORE.currentGLProgram = null;
+			CORE.projectionNeedsUpdate = true;
+			// global vars end
+			CORE.Init = function(){
 				canvas = document.createElement("canvas");
 				canvas.style.width = "100%";
 				canvas.style.height = "100%";
+				canvas.style.position = "absolute";
+				canvas.style.left = "0px";
+				canvas.style.top = "0px";
+				canvas.style.imageRendering = "pixelated";
 				document.body.appendChild( canvas );
 				
 				gl = canvas.getContext("webgl");
 				if(!gl){ alert("No WebGL support"); return; }
 				
-				CORE.scene = new CORE.Obj("scene");
+				gl.enable(gl.CULL_FACE);
+				gl.enable(gl.DEPTH_TEST);
 				
-				CORE.update();
+				CORE.scene = new CORE.Scene();
+				var cam = new CORE.Camera();
+				CORE.scene.Add(cam);
+				CORE.scene.mainCamera = cam;
+				
+				CORE.time = Date.now();
+				CORE._lastTime = CORE.time;
+				CORE.deltaTime = 0;
+				
+				CORE.Update();
+				
+				window.addEventListener( "resize", CORE.Resize );
+				CORE.Resize();
 			};
 			
-			CORE.update = function(){
-				requestAnimationFrame( CORE.update );
-				CORE.render();
+			CORE.Update = function(){
+				CORE.time = Date.now();
+				CORE.deltaTime = CORE.time - CORE._lastTime;
+				requestAnimationFrame( CORE.Update );
+				for( var i = 0; i < CORE.scene.allObjects.length; i++){
+					CORE.scene.allObjects[i].Update();
+				}
+				CORE.Render();
+				CORE._lastTime = CORE.time;
 			};
 			
-			CORE.render = function(){
+			CORE.Render = function(){
+				gl.viewport( 0, 0, canvas.width, canvas.height );
+				gl.clearColor( 0,0,0,1 );
+				gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT );
 				
+				CORE.RenderScene( CORE.scene, CORE.scene.mainCamera );
 			};
+			
+			CORE.RenderScene = function( scene, camera ){
+				// todo :
+				// Set view and projection matrix from camera
+				// todo find an algorithm to sort objects in depth
+				for( var i = 0; i < scene.allObjects.length; i++){
+					if(scene.allObjects[i].visible == true){
+						scene.allObjects[i].Draw();
+					}
+				}
+			};
+			
+			CORE.Resize = function(){
+				canvas.width = Math.floor( window.innerWidth * CORE.resolutionScaling );
+				canvas.height = Math.floor( window.innerHeight * CORE.resolutionScaling );
+				CORE.scene.mainCamera.UpdateProjectionMatrix();
+			};
+			
+			/////////////
+			// classes //
+			/////////////
 			
 			CORE.Material = class Material{
-				constructor(){
-					this.program = null;
+				constructor( p ){
+					this.vertexShader = [
+						"precision lowp float;",
+						
+						"attribute vec3 vertex;",
+						"attribute vec2 uv0;",
+						
+						"uniform mat4 modelMatrix;",
+						"uniform mat4 viewMatrix;",
+						"uniform mat4 projectionMatrix;",
+						
+						"varying vec3 localVertex;",
+						"varying vec3 worldVertex;",
+						"varying vec2 vuv0;",
+						
+						"void main(){",
+						"	vuv0 = uv0;",
+						"	localVertex = vertex;",
+						"	worldVertex = vec4( modelMatrix * vec4(vertex,1.0) ).xyz;",
+						"	gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4( vertex, 1.0 );",
+						"}"
+					].join('\n');
+					this.fragmentShader = [
+						"precision lowp float;",
+						
+						"varying vec3 localVertex;",
+						"varying vec3 worldVertex;",
+						"varying vec2 vuv0;",
+						
+						"uniform sampler2D albedoTexture;",
+						
+						"void main(){",
+						"	gl_FragColor = texture2D( albedoTexture, vuv0 );",
+						"}"
+					].join('\n');
+					this.GLVertexShader = null;
+					this.GLFragmentShader = null;
+					this.GLProgram = null;
+					
 					this.uniforms = {};
+					
+					if(p != null){
+						if(p.vertexShader != null){
+							this.vertexShader = p.vertexShader;
+						}
+						if(p.fragmentShader != null){
+							this.fragmentShader = p.fragmentShader;
+						}
+					}
+					this.InitGLProgram();
+				}
+				InitGLProgram(){
+					this.GLVertexShader = gl.createShader(gl.VERTEX_SHADER);
+					this.GLFragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+					this.GLProgram = gl.createProgram();
+				
+					gl.shaderSource(this.GLVertexShader, this.vertexShader);
+					gl.compileShader(this.GLVertexShader);
+					
+					gl.shaderSource(this.GLFragmentShader, this.fragmentShader);
+					gl.compileShader(this.GLFragmentShader);
+					
+					gl.attachShader( this.GLProgram, this.GLVertexShader);
+					gl.attachShader( this.GLProgram, this.GLFragmentShader);
+					
+					gl.linkProgram(this.GLProgram);
+				}
+				SetUniform( name, type, value ){
+					var l = gl.getUniformLocation(this.GLProgram, name);
+					if(l != -1){
+						if(type == CORE.UNIFORM_MAT4){
+							gl.uniformMatrix4fv( l, false, value );
+						}else if( type == CORE.UNIFORM_TEX ){
+							gl.uniform1i( l, value );
+						}
+					}
+				}
+				Use(){
+					gl.useProgram( this.GLProgram );
+					CORE.currentGLProgram = this.GLProgram;
+					for(var name in this.uniforms){
+						this.SetUniform( name, this.uniforms[name].type, this.uniforms[name].value );
+					}
 				}
 			};
 			
 			CORE.Texture = class Texture{
 				constructor(){
+					this.GLTexture = gl.createTexture();
+					gl.bindTexture( gl.TEXTURE_2D, this.GLTexture );
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,new Uint8Array([0, 0, 255, 255]));
+				}
+				Load( url ){
+					var self = this;
+					var image = new Image();
+					gl.bindTexture(gl.TEXTURE_2D, this.GLTexture);
+					image.src = url;
+					image.addEventListener("load", function(){
+						gl.bindTexture(gl.TEXTURE_2D, self.GLTexture);
+						gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+						gl.generateMipmap(gl.TEXTURE_2D);
+						//}
+					});
 					
+					console.log(image);
+					return this;
 				}
 			};
 			
 			CORE.Mesh = class Mesh{
-				constructor(){
+				constructor(p){
 					this.attributes = [];
+					this.indices = {data:null, buffer:null};
 					this.vertexCount = 0;
+					if(p!=null){
+						if(p.attributes != null){
+							for(var name in p.attributes ){
+								var a = p.attributes[name];
+								this.SetAttribute( name, a.data, a.size || 3, a.type || gl.FLOAT, a.normalized || false );
+							}
+						}
+						if(p.indices != null){
+							this.SetIndices( p.indices );
+						}
+					}
 				}
 				SetAttribute(name, data, size, type, normalized){
 					var attr = null;
@@ -66,6 +373,9 @@
 						};
 						this.attributes.push(attr);
 					}
+					if(attr.name == "vertex"){
+						this.vertexCount = data.length/ size;
+					}
 					attr.data = data;
 					attr.size = size;
 					attr.type = type;
@@ -73,58 +383,259 @@
 					
 					gl.bindBuffer(gl.ARRAY_BUFFER, attr.buffer);
 					gl.bufferData(gl.ARRAY_BUFFER, attr.data, gl.STATIC_DRAW);
-					gl.enableVertexAttribArray(attr.index);
 				}
-				SetVertices( data ){
-					this.SetAttribute( "vertex", data, 3, gl.FLOAT, false );
-					this.vertexCount = data.length / 3;
+				SetIndices( data ){
+					this.indices.data = data;
+					this.indices.buffer = gl.createBuffer();
+					gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indices.buffer);
+					gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indices.data, gl.STATIC_DRAW);
+					gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, null );
 				}
 				Draw(){
-					for(var i = 0; i < data.attributes.length; i++){
-						var attr = data.attributes[i];
-						gl.vertexAttribPointer( attr.index, attr.size, attr.type, attr.normalized, 0, 0 );
+					// setup attributes for drawing 
+					for(var i = 0; i < this.attributes.length; i++){
+						var attr = this.attributes[i];
+						var loc = gl.getAttribLocation( CORE.currentGLProgram, attr.name );
+						if(loc != -1){
+							gl.bindBuffer(gl.ARRAY_BUFFER, attr.buffer);
+							gl.enableVertexAttribArray(loc);
+							gl.vertexAttribPointer( loc, attr.size, attr.type, attr.normalized, 0, 0 );
+						}
 					}
+					
+					// choose drawing method based on indices existing or not
+					if(this.indices.data == null){
+						gl.drawArrays( gl.TRIANGLES, 0, this.vertexCount );
+					}else{
+						gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, this.indices.buffer );
+						gl.drawElements( gl.TRIANGLES, this.indices.data.length, gl.UNSIGNED_SHORT, 0 );
+					}
+					
+					// cleanup after drawing
+					for(var i = 0; i < this.attributes.length; i++){
+						var attr = this.attributes[i];
+						var loc = gl.getAttribLocation( CORE.currentGLProgram, attr.name );
+						if(loc != -1){
+							gl.disableVertexAttribArray( loc );
+						}
+					}
+					gl.bindBuffer( gl.ARRAY_BUFFER, null );
+					gl.bindBuffer( gl.ELEMENT_ARRAY_BUFFER, null );
 				}
 			};
 			
 			CORE.Obj = class Obj{
-				constructor(name){
+				constructor( mesh, material ){
 					this.name = name;
+					this.scene = null;
+					this._oldPosition = new Float32Array([0,0,0]);
+					this._oldRotation = new Float32Array([0,0,0,1]);
+					this._oldScale = new Float32Array([1,1,1]);
 					this.position = new Float32Array([0,0,0]);
 					this.rotation = new Float32Array([0,0,0,1]);
 					this.scale = new Float32Array([1,1,1]);
+					this.localMatrix = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
 					this.localToWorld = new Float32Array([ 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 ]);
 					this.parent = null;
 					this.children = [];
-					this.mesh = null;
-					this.material = null;
+					this.mesh = mesh || null;
+					this.material = material || null;
+					this.matrixNeedsUpdate = true;
+					this.enabled = true;
+					this.visible = true;
+					this.visibilityLayers = [];
+					
+					this._onstartCalled = false;
+					
+					// callbacks for easy behaviour addition
+					this.onupdate = function(){};
+					this.onstart = function(){};
+					this.ondestroy = function(){}; // todo
+					
+				}
+				SetMatrixDirty(){
+					this.matrixNeedsUpdate = true;
+					for(var i = 0; i < this.children.length; i++){
+						this.children[i].SetMatrixDirty();
+					}
+				}
+				Add( obj ){
+					this.children.push(obj);
+					obj.parent = obj;
+					if(obj.scene == null){
+						obj.scene = this.scene;
+						this.scene.allObjects.push(obj);
+					}
+					obj.matrixNeedsUpdate = true;
+				}
+				Update(){
+					if(!this._onstartCalled){
+						this.onstart();
+						this._onstartCalled = true;
+					}
+					this.onupdate();
+					
+					if( !VecEqual( this._oldPosition, this.position ) || !VecEqual( this._oldRotation, this.rotation ) || !VecEqual( this._oldScale, this.scale )){
+						this.SetMatrixDirty();
+					}
+					this.RecalculateMatrix();
+					
+					this._oldPosition.set( this.position );
+					this._oldRotation.set( this.rotation );
+					this._oldScale.set( this.scale );
+				}
+				Draw(){
+					if(this.mesh != null){
+						this.material.Use();
+						this.material.SetUniform( "modelMatrix", CORE.UNIFORM_MAT4, this.localToWorld );
+						this.material.SetUniform( "projectionMatrix", CORE.UNIFORM_MAT4, CORE.scene.mainCamera.projectionMatrix );
+						this.material.SetUniform( "viewMatrix", CORE.UNIFORM_MAT4, CORE.scene.mainCamera.localToWorld );
+						gl.cullFace( gl.BACK );
+						this.mesh.Draw();
+					}
+				}
+				RecalculateMatrix(){
+					if(this.matrixNeedsUpdate == true){
+						this.localMatrix = Mat4FromTRS( this.position, this.rotation, this.scale );
+						if(this.parent != null){
+							this.localToWorld = MatMul( this.parent.localToWorld, this.localMatrix );
+						}else{
+							this.localToWorld = this.localMatrix;
+						}
+					}
+					this.matrixNeedsUpdate = false;
+				}
+			};
+			
+			CORE.Scene = class Scene extends CORE.Obj{
+				constructor(){
+					super();
+					this.allObjects = [];
+					this.mainCamera = null;
+				}
+				
+				Add( obj ){
+					this.children.push( obj );
+					obj.scene = this;
+					this.allObjects.push( obj );
 				}
 			};
 			
 			CORE.Camera = class Camera extends CORE.Obj{
 				constructor(){
 					super();
+					this.near = 0.1;
+					this.far = 100.0;
+					this.aspect = 1;
+					this.fov = 90;
+					this.projectionMatrix = Mat4Perspective( this.fov, this.aspect, this.near, this.far );
 				}
-			}
-				
-			CORE.MeshObj = class MeshObj extends CORE.Obj{
-				constructor(){
-					super();
+				UpdateProjectionMatrix(){
+					this.aspect = canvas.height / canvas.width;
+					this.projectionMatrix = Mat4Perspective( this.fov, this.aspect, this.near, this.far );
 				}
 			};
 		</script>
 	</head>
 	<body>
 		<script>
-			CORE.init();
-			var plane = new CORE.Mesh();
-			plane.SetAttribute(
-				"vertex", 
-				new Float32Array([ -1,-1,0, 1,-1,0, 1,1,0, -1,-1,0, -1,1,0, 1,1,0 ]),
-				3,
-				false
-			);
-			console.log(plane);
+			CORE.Init();
+			
+			var plane = new CORE.Mesh({
+				attributes : {
+					"vertex" : { data:new Float32Array([ -10,0,-10, 10,0,-10, 10,0,10, -10,0,10 ]) },
+					"uv0" : { size:2, data:new Float32Array([ 0,0, 1,0, 1,1, 0,1 ]) }
+				},
+				indices : new Uint16Array([ 0,2,1, 0,3,2 ])
+			});
+			
+			var cube = new CORE.Mesh({
+				attributes : {
+					"vertex" : { data : new Float32Array([
+						// Front face
+					  -1.0, -1.0,  1.0,
+					   1.0, -1.0,  1.0,
+					   1.0,  1.0,  1.0,
+					  -1.0,  1.0,  1.0,
+					  
+					  // Back face
+					  -1.0, -1.0, -1.0,
+					  -1.0,  1.0, -1.0,
+					   1.0,  1.0, -1.0,
+					   1.0, -1.0, -1.0,
+					  
+					  // Top face
+					  -1.0,  1.0, -1.0,
+					  -1.0,  1.0,  1.0,
+					   1.0,  1.0,  1.0,
+					   1.0,  1.0, -1.0,
+					  
+					  // Bottom face
+					  -1.0, -1.0, -1.0,
+					   1.0, -1.0, -1.0,
+					   1.0, -1.0,  1.0,
+					  -1.0, -1.0,  1.0,
+					  
+					  // Right face
+					   1.0, -1.0, -1.0,
+					   1.0,  1.0, -1.0,
+					   1.0,  1.0,  1.0,
+					   1.0, -1.0,  1.0,
+					  
+					  // Left face
+					  -1.0, -1.0, -1.0,
+					  -1.0, -1.0,  1.0,
+					  -1.0,  1.0,  1.0,
+					  -1.0,  1.0, -1.0,
+					])},
+					"normal" : {data : new Float32Array([
+						 0, 0, 1,	 0, 0, 1,	 0, 0, 1,	 0, 0, 1,
+						 0, 0,-1,	 0, 0,-1,	 0, 0,-1,	 0, 0,-1,
+						 0, 1, 0,	 0, 1, 0,	 0, 1, 0,	 0, 1, 0,
+						 0,-1, 0,	 0,-1, 0,	 0,-1, 0,	 0,-1, 0,
+						 1, 0, 0,	 1, 0, 0,	 1, 0, 0,	 1, 0, 0,
+						-1, 0, 0,	-1, 0, 0,	-1, 0, 0,	-1, 0, 0
+					])},
+					"uv0" : {size : 2, data : new Float32Array([
+						0,0,	1,0,	1,1,	0,1,
+						0,0,	0,1,	1,1,	1,0,
+						0,0,	0,1,	1,1,	1,0,
+						0,0,	1,0,	1,1,	0,1,
+						0,0,	1,0,	1,1,	0,1,
+						0,0,	0,1,	1,1,	1,0
+					])}
+				},
+				indices : new Uint16Array([
+					0,  1,  2,      0,  2,  3,    // front
+					4,  5,  6,      4,  6,  7,    // back
+					8,  9,  10,     8,  10, 11,   // top
+					12, 13, 14,     12, 14, 15,   // bottom
+					16, 17, 18,     16, 18, 19,   // right
+					20, 21, 22,     20, 22, 23   // left
+				])
+			});
+
+			var material = new CORE.Material();
+			material.uniforms["albedoTexture"] = { type:CORE.UNIFORM_TEX, value: new CORE.Texture().Load( "../assets/textures/octostoneAlbedo.png" ).GLTexture };
+			var planeObj = new CORE.Obj( plane, material );
+			planeObj.position[1] = -1;
+			
+			console.log(material.uniforms);
+			
+			var cubeObj = new CORE.Obj( cube, material );
+			
+			cubeObj.onupdate = function(){
+				this.rotation = QuatFromEuler( [0, CORE.time / 1000, 0] );
+				this.SetMatrixDirty();
+			};
+			
+			CORE.scene.Add( cubeObj );
+			
+			CORE.scene.Add( planeObj );
+			
+			CORE.scene.mainCamera.position[2] = -5;
+			
+			//planeObj.visible = false;
 		</script>
 	</body>
 </html>
