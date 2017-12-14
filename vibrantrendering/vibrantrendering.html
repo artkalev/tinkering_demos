@@ -91,10 +91,11 @@
 			}
 			function Mat4FromQuat( q ){
 				var q = VecNormalize(q);
+
 				var m = new Float32Array([
-					1-2*q[1]*q[1] - 2*q[2]*q[2] , 2*q[0]*q[1] - 2*q[2]*q[3] , 2*q[0]*q[2] + 2*q[1]*q[3] , 0,
-					2*q[0]*q[1] + 2*q[2]*q[3]   , 1-2*q[0]*q[0]-2*q[2]*q[2] , 2*q[1]*q[2]-2*q[0]*q[3] , 0,
-					2*q[0]*q[2]-2*q[1]*q[3]     , 2*q[1]*q[2]+2*q[0]*q[3]   , 1-2*q[0]*q[0]-2*q[1]*q[1] , 0,
+					1-2*q[1]*q[1] - 2*q[2]*q[2] , 2*q[0]*q[1] + 2*q[2]*q[3] , 2*q[0]*q[2]-2*q[1]*q[3] , 0,
+					2*q[0]*q[1] - 2*q[2]*q[3]   , 1-2*q[0]*q[0]-2*q[2]*q[2] , 2*q[1]*q[2]+2*q[0]*q[3]  , 0,
+					2*q[0]*q[2] + 2*q[1]*q[3]    , 2*q[1]*q[2]-2*q[0]*q[3]  , 1-2*q[0]*q[0]-2*q[1]*q[1] , 0,
 					0,0,0,1
 				]);
 				return m;
@@ -114,6 +115,133 @@
 					0,0,0,1
 				]);
 				return MatMul( MatMul( S, T ), R );
+			}
+			function Mat4Invert(m){
+				var inv = new Float32Array(16);
+				var det = 0;
+				var i = 0;
+
+				inv[0] = m[5]  * m[10] * m[15] - 
+						 m[5]  * m[11] * m[14] - 
+						 m[9]  * m[6]  * m[15] + 
+						 m[9]  * m[7]  * m[14] +
+						 m[13] * m[6]  * m[11] - 
+						 m[13] * m[7]  * m[10];
+
+				inv[4] = -m[4]  * m[10] * m[15] + 
+						  m[4]  * m[11] * m[14] + 
+						  m[8]  * m[6]  * m[15] - 
+						  m[8]  * m[7]  * m[14] - 
+						  m[12] * m[6]  * m[11] + 
+						  m[12] * m[7]  * m[10];
+
+				inv[8] = m[4]  * m[9] * m[15] - 
+						 m[4]  * m[11] * m[13] - 
+						 m[8]  * m[5] * m[15] + 
+						 m[8]  * m[7] * m[13] + 
+						 m[12] * m[5] * m[11] - 
+						 m[12] * m[7] * m[9];
+
+				inv[12] = -m[4]  * m[9] * m[14] + 
+						   m[4]  * m[10] * m[13] +
+						   m[8]  * m[5] * m[14] - 
+						   m[8]  * m[6] * m[13] - 
+						   m[12] * m[5] * m[10] + 
+						   m[12] * m[6] * m[9];
+
+				inv[1] = -m[1]  * m[10] * m[15] + 
+						  m[1]  * m[11] * m[14] + 
+						  m[9]  * m[2] * m[15] - 
+						  m[9]  * m[3] * m[14] - 
+						  m[13] * m[2] * m[11] + 
+						  m[13] * m[3] * m[10];
+
+				inv[5] = m[0]  * m[10] * m[15] - 
+						 m[0]  * m[11] * m[14] - 
+						 m[8]  * m[2] * m[15] + 
+						 m[8]  * m[3] * m[14] + 
+						 m[12] * m[2] * m[11] - 
+						 m[12] * m[3] * m[10];
+
+				inv[9] = -m[0]  * m[9] * m[15] + 
+						  m[0]  * m[11] * m[13] + 
+						  m[8]  * m[1] * m[15] - 
+						  m[8]  * m[3] * m[13] - 
+						  m[12] * m[1] * m[11] + 
+						  m[12] * m[3] * m[9];
+
+				inv[13] = m[0]  * m[9] * m[14] - 
+						  m[0]  * m[10] * m[13] - 
+						  m[8]  * m[1] * m[14] + 
+						  m[8]  * m[2] * m[13] + 
+						  m[12] * m[1] * m[10] - 
+						  m[12] * m[2] * m[9];
+
+				inv[2] = m[1]  * m[6] * m[15] - 
+						 m[1]  * m[7] * m[14] - 
+						 m[5]  * m[2] * m[15] + 
+						 m[5]  * m[3] * m[14] + 
+						 m[13] * m[2] * m[7] - 
+						 m[13] * m[3] * m[6];
+
+				inv[6] = -m[0]  * m[6] * m[15] + 
+						  m[0]  * m[7] * m[14] + 
+						  m[4]  * m[2] * m[15] - 
+						  m[4]  * m[3] * m[14] - 
+						  m[12] * m[2] * m[7] + 
+						  m[12] * m[3] * m[6];
+
+				inv[10] = m[0]  * m[5] * m[15] - 
+						  m[0]  * m[7] * m[13] - 
+						  m[4]  * m[1] * m[15] + 
+						  m[4]  * m[3] * m[13] + 
+						  m[12] * m[1] * m[7] - 
+						  m[12] * m[3] * m[5];
+
+				inv[14] = -m[0]  * m[5] * m[14] + 
+						   m[0]  * m[6] * m[13] + 
+						   m[4]  * m[1] * m[14] - 
+						   m[4]  * m[2] * m[13] - 
+						   m[12] * m[1] * m[6] + 
+						   m[12] * m[2] * m[5];
+
+				inv[3] = -m[1] * m[6] * m[11] + 
+						  m[1] * m[7] * m[10] + 
+						  m[5] * m[2] * m[11] - 
+						  m[5] * m[3] * m[10] - 
+						  m[9] * m[2] * m[7] + 
+						  m[9] * m[3] * m[6];
+
+				inv[7] = m[0] * m[6] * m[11] - 
+						 m[0] * m[7] * m[10] - 
+						 m[4] * m[2] * m[11] + 
+						 m[4] * m[3] * m[10] + 
+						 m[8] * m[2] * m[7] - 
+						 m[8] * m[3] * m[6];
+
+				inv[11] = -m[0] * m[5] * m[11] + 
+						   m[0] * m[7] * m[9] + 
+						   m[4] * m[1] * m[11] - 
+						   m[4] * m[3] * m[9] - 
+						   m[8] * m[1] * m[7] + 
+						   m[8] * m[3] * m[5];
+
+				inv[15] = m[0] * m[5] * m[10] - 
+						  m[0] * m[6] * m[9] - 
+						  m[4] * m[1] * m[10] + 
+						  m[4] * m[2] * m[9] + 
+						  m[8] * m[1] * m[6] - 
+						  m[8] * m[2] * m[5];
+
+				det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
+
+				det = 1.0 / det;
+				
+				var invOut = new Float32Array(16);
+				for (i = 0; i < 16; i++)
+					invOut[i] = inv[i] * det;
+
+				return invOut;
 			}
 			
 			function Mat4Perspective( fov, aspect, near, far ){
@@ -169,6 +297,11 @@
 				gl = canvas.getContext("webgl");
 				if(!gl){ alert("No WebGL support"); return; }
 				
+				CORE.framebuffer0 = new CORE.FrameBuffer();
+				CORE.framebuffer1 = new CORE.FrameBuffer();
+				CORE.framebuffer2 = new CORE.FrameBuffer();
+				CORE.framebuffer3 = new CORE.FrameBuffer();
+				
 				gl.enable(gl.CULL_FACE);
 				gl.enable(gl.DEPTH_TEST);
 				
@@ -223,49 +356,85 @@
 				CORE.scene.mainCamera.UpdateProjectionMatrix();
 			};
 			
+			////////////////////
+			// common shaders //
+			////////////////////
+			
+			CORE.commonShaders = {
+				vertexNormalDepth : [
+					"precision lowp float;",
+					"attribute vec3 vertex;",
+					"attribute vec3 normal;",
+					"uniform mat4 modelMatrix;",
+					"uniform mat4 viewMatrix;",
+					"uniform mat4 projectionMatrix;",
+					"varying vec3 v_worldNormal;",
+					"varying float v_depth;",
+					"void main(){",
+					"	v_worldNormal = vec4( modelMatrix * vec4(vertex,0.0) ).xyz;",
+					"	gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4( vertex, 1.0 );",
+					"	v_depth = gl_Position.w;",
+					"}"
+				].join('\n'),
+				fragmentNormalDepth : [
+						"precision lowp float;",
+						"varying vec3 v_worldNormal;",
+						"varying float v_depth;",
+						"void main(){",
+						"	gl_FragColor = vec4( v_worldNormal*0.5+0.5, v_depth );",
+						"}"
+				].join('\n')
+			};
+			
 			/////////////
 			// classes //
 			/////////////
 			
+			CORE.GLProgram = class GLProgram{
+				constructor( vertexSource, fragmentSource ){
+					this.vertexSource = vertexSource;
+					this.fragmentSource = fragmentSource;
+					this.vertexShader = gl.createShader(gl.VERTEX_SHADER);
+					this.fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+					this.program = gl.createProgram();
+					
+					gl.shaderSource( this.vertexShader, this.vertexSource );
+					gl.shaderSource( this.fragmentShader, this.fragmentSource );
+					
+					gl.compileShader( this.vertexShader );
+					var error = gl.getShaderInfoLog(this.vertexShader);
+					if (error.length > 0) {
+					  throw error;
+					}
+					gl.compileShader( this.fragmentShader );
+					var error = gl.getShaderInfoLog(this.fragmentShader);
+					if (error.length > 0) {
+					  throw error;
+					}
+					
+					gl.attachShader( this.program, this.vertexShader );
+					gl.attachShader( this.program, this.fragmentShader );
+					gl.linkProgram( this.program );
+					gl.validateProgram(this.program);
+					if ( !gl.getProgramParameter( this.program, gl.LINK_STATUS) ) {
+					  var info = gl.getProgramInfoLog(this.program);
+					  throw new Error('Could not compile WebGL program. \n\n' + info);
+					}
+				}
+				Use(){
+					gl.useProgram( this.program );
+				}
+			};
+			
 			CORE.Material = class Material{
 				constructor( p ){
-					this.vertexShader = [
-						"precision lowp float;",
-						
-						"attribute vec3 vertex;",
-						"attribute vec2 uv0;",
-						
-						"uniform mat4 modelMatrix;",
-						"uniform mat4 viewMatrix;",
-						"uniform mat4 projectionMatrix;",
-						
-						"varying vec3 localVertex;",
-						"varying vec3 worldVertex;",
-						"varying vec2 vuv0;",
-						
-						"void main(){",
-						"	vuv0 = uv0;",
-						"	localVertex = vertex;",
-						"	worldVertex = vec4( modelMatrix * vec4(vertex,1.0) ).xyz;",
-						"	gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4( vertex, 1.0 );",
-						"}"
-					].join('\n');
-					this.fragmentShader = [
-						"precision lowp float;",
-						
-						"varying vec3 localVertex;",
-						"varying vec3 worldVertex;",
-						"varying vec2 vuv0;",
-						
-						"uniform sampler2D albedoTexture;",
-						
-						"void main(){",
-						"	gl_FragColor = texture2D( albedoTexture, vuv0 );",
-						"}"
-					].join('\n');
-					this.GLVertexShader = null;
-					this.GLFragmentShader = null;
-					this.GLProgram = null;
+					this.activePass = 0;
+					this.passes = [						
+						new CORE.GLProgram( 
+							CORE.commonShaders.vertexNormalDepth, 
+							CORE.commonShaders.fragmentNormalDepth
+						)
+					];
 					
 					this.uniforms = {};
 					
@@ -296,7 +465,7 @@
 					gl.linkProgram(this.GLProgram);
 				}
 				SetUniform( name, type, value ){
-					var l = gl.getUniformLocation(this.GLProgram, name);
+					var l = gl.getUniformLocation(this.passes[this.activePass].program, name);
 					if(l != -1){
 						if(type == CORE.UNIFORM_MAT4){
 							gl.uniformMatrix4fv( l, false, value );
@@ -305,9 +474,10 @@
 						}
 					}
 				}
-				Use(){
-					gl.useProgram( this.GLProgram );
-					CORE.currentGLProgram = this.GLProgram;
+				Use( passIndex ){
+					this.activePass = passIndex || 0;
+					this.passes[ passIndex || 0 ].Use();
+					CORE.currentGLProgram = this.passes[ passIndex || 0 ].program;
 					for(var name in this.uniforms){
 						this.SetUniform( name, this.uniforms[name].type, this.uniforms[name].value );
 					}
@@ -318,7 +488,10 @@
 				constructor(){
 					this.GLTexture = gl.createTexture();
 					gl.bindTexture( gl.TEXTURE_2D, this.GLTexture );
-					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,new Uint8Array([0, 0, 255, 255]));
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 2, 2, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([200, 200, 200, 255,  100, 100, 100, 255,  100, 100, 100, 255,  200, 200, 200, 255]));
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+					gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+					gl.generateMipmap(gl.TEXTURE_2D);
 				}
 				Load( url ){
 					var self = this;
@@ -328,12 +501,30 @@
 					image.addEventListener("load", function(){
 						gl.bindTexture(gl.TEXTURE_2D, self.GLTexture);
 						gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 						gl.generateMipmap(gl.TEXTURE_2D);
 						//}
 					});
 					
 					console.log(image);
 					return this;
+				}
+			};
+			
+			CORE.FrameBuffer = class FrameBuffer{
+				constructor(){
+					this.width = 100;
+					this.height = 100;
+					this.GLTexture = gl.createTexture();
+					this.GLFrameBuffer = gl.createFramebuffer();
+					// setup texture
+					gl.bindTexture( gl.TEXTURE_2D, this.GLTexture );
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,new Uint8Array([0, 0, 255, 255]));
+					// setup framebuffer
+					gl.bindFramebuffer(gl.FRAMEBUFFER, this.GLFrameBuffer);
+					gl.framebufferTexture2D( gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.GLTexture, 0 );
+					gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 				}
 			};
 			
@@ -395,12 +586,12 @@
 					// setup attributes for drawing 
 					for(var i = 0; i < this.attributes.length; i++){
 						var attr = this.attributes[i];
-						var loc = gl.getAttribLocation( CORE.currentGLProgram, attr.name );
-						if(loc != -1){
+						//var loc = gl.getAttribLocation( CORE.currentGLProgram, attr.name );
+						//if(loc != -1){
 							gl.bindBuffer(gl.ARRAY_BUFFER, attr.buffer);
-							gl.enableVertexAttribArray(loc);
-							gl.vertexAttribPointer( loc, attr.size, attr.type, attr.normalized, 0, 0 );
-						}
+							gl.enableVertexAttribArray(i);
+							gl.vertexAttribPointer( i, attr.size, attr.type, attr.normalized, 0, 0 );
+						//}
 					}
 					
 					// choose drawing method based on indices existing or not
@@ -489,7 +680,7 @@
 						this.material.Use();
 						this.material.SetUniform( "modelMatrix", CORE.UNIFORM_MAT4, this.localToWorld );
 						this.material.SetUniform( "projectionMatrix", CORE.UNIFORM_MAT4, CORE.scene.mainCamera.projectionMatrix );
-						this.material.SetUniform( "viewMatrix", CORE.UNIFORM_MAT4, CORE.scene.mainCamera.localToWorld );
+						this.material.SetUniform( "viewMatrix", CORE.UNIFORM_MAT4, CORE.scene.mainCamera.viewMatrix );
 						gl.cullFace( gl.BACK );
 						this.mesh.Draw();
 					}
@@ -521,6 +712,12 @@
 				}
 			};
 			
+			CORE.Light = class Light extends CORE.Obj{
+				constructor(){
+					super();
+				}
+			};
+			
 			CORE.Camera = class Camera extends CORE.Obj{
 				constructor(){
 					super();
@@ -529,10 +726,15 @@
 					this.aspect = 1;
 					this.fov = 90;
 					this.projectionMatrix = Mat4Perspective( this.fov, this.aspect, this.near, this.far );
+					this.viewMatrix = new Float32Array([ 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 ]);
 				}
 				UpdateProjectionMatrix(){
 					this.aspect = canvas.height / canvas.width;
 					this.projectionMatrix = Mat4Perspective( this.fov, this.aspect, this.near, this.far );
+				}
+				RecalculateMatrix(){
+					super.RecalculateMatrix();
+					//this.viewMatrix = todo
 				}
 			};
 		</script>
@@ -544,6 +746,7 @@
 			var plane = new CORE.Mesh({
 				attributes : {
 					"vertex" : { data:new Float32Array([ -10,0,-10, 10,0,-10, 10,0,10, -10,0,10 ]) },
+					"normal" : { data:new Float32Array([ 0,1,0, 0,1,0, 0,1,0, 0,1,0  ])},
 					"uv0" : { size:2, data:new Float32Array([ 0,0, 1,0, 1,1, 0,1 ]) }
 				},
 				indices : new Uint16Array([ 0,2,1, 0,3,2 ])
@@ -625,15 +828,20 @@
 			var cubeObj = new CORE.Obj( cube, material );
 			
 			cubeObj.onupdate = function(){
-				this.rotation = QuatFromEuler( [0, CORE.time / 1000, 0] );
+				this.rotation = QuatFromEuler( [0, CORE.time / 10000, 0] );
+				//this.position[2] = Math.sin( CORE.time / 1000 );
 				this.SetMatrixDirty();
 			};
+			//planeObj.rotation = QuatFromEuler( [0, 0, 0] );
+			planeObj.SetMatrixDirty();
 			
 			CORE.scene.Add( cubeObj );
 			
 			CORE.scene.Add( planeObj );
 			
 			CORE.scene.mainCamera.position[2] = -5;
+			CORE.scene.mainCamera.position[1] = 0;
+			CORE.scene.mainCamera.RecalculateMatrix();
 			
 			//planeObj.visible = false;
 		</script>
