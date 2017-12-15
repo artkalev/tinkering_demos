@@ -114,7 +114,7 @@
 					0,0,scale[2],0,
 					0,0,0,1
 				]);
-				return MatMul( MatMul( S, T ), R );
+				return MatMul( T, MatMul( R,S ) );
 			}
 			function Mat4Invert(m){
 				var inv = new Float32Array(16);
@@ -371,7 +371,7 @@
 					"varying vec3 v_worldNormal;",
 					"varying float v_depth;",
 					"void main(){",
-					"	v_worldNormal = vec4( modelMatrix * vec4(vertex,0.0) ).xyz;",
+					"	v_worldNormal = normalize( vec4( modelMatrix * vec4(normal,0.0) ).xyz );",
 					"	gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4( vertex, 1.0 );",
 					"	v_depth = gl_Position.w;",
 					"}"
@@ -381,7 +381,7 @@
 						"varying vec3 v_worldNormal;",
 						"varying float v_depth;",
 						"void main(){",
-						"	gl_FragColor = vec4( v_worldNormal*0.5+0.5, v_depth );",
+						"	gl_FragColor = vec4( v_worldNormal * 0.5 + 0.5, v_depth );",
 						"}"
 				].join('\n')
 			};
@@ -652,7 +652,7 @@
 				}
 				Add( obj ){
 					this.children.push(obj);
-					obj.parent = obj;
+					obj.parent = this;
 					if(obj.scene == null){
 						obj.scene = this.scene;
 						this.scene.allObjects.push(obj);
@@ -689,12 +689,16 @@
 					if(this.matrixNeedsUpdate == true){
 						this.localMatrix = Mat4FromTRS( this.position, this.rotation, this.scale );
 						if(this.parent != null){
+							//console.log("parent matrix "+this.parent.localToWorld);
 							this.localToWorld = MatMul( this.parent.localToWorld, this.localMatrix );
 						}else{
 							this.localToWorld = this.localMatrix;
 						}
 					}
 					this.matrixNeedsUpdate = false;
+					for(var i = 0; i < this.children.length; i++){
+						this.children[i].matrixNeedsUpdate = true;
+					}
 				}
 			};
 			
@@ -734,7 +738,14 @@
 				}
 				RecalculateMatrix(){
 					super.RecalculateMatrix();
-					//this.viewMatrix = todo
+					this.viewMatrix.set( this.localToWorld );
+					this.viewMatrix[12] *= -1;
+					this.viewMatrix[13] *= -1;
+					this.viewMatrix[14] *= 1;
+					
+					this.viewMatrix[2] *= -1;
+					this.viewMatrix[6] *= -1;
+					this.viewMatrix[10] *= -1;
 				}
 			};
 		</script>
@@ -749,7 +760,7 @@
 					"normal" : { data:new Float32Array([ 0,1,0, 0,1,0, 0,1,0, 0,1,0  ])},
 					"uv0" : { size:2, data:new Float32Array([ 0,0, 1,0, 1,1, 0,1 ]) }
 				},
-				indices : new Uint16Array([ 0,2,1, 0,3,2 ])
+				indices : new Uint16Array([ 0,1,2, 0,2,3 ])
 			});
 			
 			var cube = new CORE.Mesh({
@@ -809,12 +820,12 @@
 					])}
 				},
 				indices : new Uint16Array([
-					0,  1,  2,      0,  2,  3,    // front
-					4,  5,  6,      4,  6,  7,    // back
-					8,  9,  10,     8,  10, 11,   // top
-					12, 13, 14,     12, 14, 15,   // bottom
-					16, 17, 18,     16, 18, 19,   // right
-					20, 21, 22,     20, 22, 23   // left
+					0,  2,  1,      0,  3,  2,    // front
+					4,  6,  5,      4,  7,  6,    // back
+					8,  10,  9,     8,  11, 10,   // top
+					12, 14, 13,     12, 15, 14,   // bottom
+					16, 18, 17,     16, 19, 18,   // right
+					20, 22, 21,     20, 23, 22   // left
 				])
 			});
 
@@ -826,16 +837,23 @@
 			console.log(material.uniforms);
 			
 			var cubeObj = new CORE.Obj( cube, material );
-			
+			var cubeObj2 = new CORE.Obj( cube, material );
+			cubeObj2.position[0] = 2;
+			cubeObj2.scale.set([0.2,0.2,0.2]);
 			cubeObj.onupdate = function(){
-				this.rotation = QuatFromEuler( [0, CORE.time / 10000, 0] );
-				//this.position[2] = Math.sin( CORE.time / 1000 );
-				this.SetMatrixDirty();
+				this.rotation = QuatFromEuler( [-CORE.time / 1000, CORE.time / 1000, 0] );
+				this.position[1] = Math.sin( CORE.time / 1000 ) + 1;
+			};
+			
+			cubeObj2.onupdate = function(){
+				this.rotation = QuatFromEuler( [0, -CORE.time / 1000, 0] );
 			};
 			//planeObj.rotation = QuatFromEuler( [0, 0, 0] );
 			planeObj.SetMatrixDirty();
 			
 			CORE.scene.Add( cubeObj );
+			
+			cubeObj.Add( cubeObj2 );
 			
 			CORE.scene.Add( planeObj );
 			
