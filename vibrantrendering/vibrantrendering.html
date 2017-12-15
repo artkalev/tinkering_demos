@@ -270,6 +270,50 @@
 			var canvas = null;
 			var CORE = {};
 			
+			// keyboard and mouse inputs
+			// keystates :
+			// 0 : none
+			// 1 : pressed
+			// 2 : held
+			// 3 : released
+			CORE.input = {
+				keys : {
+				},
+				GetKeyPressed : function( c ){
+					return (this.GetKeyState(c) == 1);
+				},
+				GetKeyHeld : function( c ){
+					return (this.GetKeyState(c) == 2);
+				},
+				GetKeyReleased : function( c ){
+					return (this.GetKeyState(c) == 3);
+				},
+				GetKeyState : function(c){
+					var k = this.keys[c];
+					if(k){
+						return k;
+					}else{
+						return 0;
+					}
+				},
+				OnKeyDown : function( e ){
+					var k = this.keys[ e.code ];
+					if(!k){ this.keys[e.code] = 1 }else if(k == 0){ k = 1; }
+				},
+				OnKeyUp : function(e){
+					this.keys[e.code] = 3;
+				},
+				Update : function(){
+					for(var key in this.keys){
+						if( this.keys[key] == 1){
+							this.keys[key] = 2;
+						}else if( this.keys[key] == 3 ){
+							this.keys[key] = 0;
+						}
+					}
+				}
+			};
+			
 			// globalEnums
 			// uniform types
 			CORE.UNIFORM_MAT4 = 0;
@@ -297,6 +341,8 @@
 				gl = canvas.getContext("webgl");
 				if(!gl){ alert("No WebGL support"); return; }
 				
+				CORE.meshLib = new CORE.MeshLib();
+				
 				CORE.framebuffer0 = new CORE.FrameBuffer();
 				CORE.framebuffer1 = new CORE.FrameBuffer();
 				CORE.framebuffer2 = new CORE.FrameBuffer();
@@ -318,6 +364,14 @@
 				
 				window.addEventListener( "resize", CORE.Resize );
 				CORE.Resize();
+				
+				// init input handling
+				window.addEventListener("keydown", function(e){
+					CORE.input.OnKeyDown( e );
+				});
+				window.addEventListener("keyup", function(e){
+					CORE.input.OnKeyUp(e);
+				});
 			};
 			
 			CORE.Update = function(){
@@ -327,8 +381,10 @@
 				for( var i = 0; i < CORE.scene.allObjects.length; i++){
 					CORE.scene.allObjects[i].Update();
 				}
+				CORE.input.Update();
 				CORE.Render();
 				CORE._lastTime = CORE.time;
+				
 			};
 			
 			CORE.Render = function(){
@@ -361,6 +417,20 @@
 			////////////////////
 			
 			CORE.commonShaders = {
+				vertexFallback : [
+					"precision lowp float;",
+					"attribute vec3 vertex;",
+					"uniform mat4 modelMatrix;",
+					"uniform mat4 viewMatrix;",
+					"uniform mat4 projectionMatrix;",
+					"void main(){",
+					"	gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4( vertex, 1.0 );",
+					"}"
+				].join("\n"),
+				fragmentFallback : [
+					"precision lowp float;",
+					"void main(){ gl_FragColor = vec4( 1.0, 0.0, 1.0, 1.0 ); }"
+				].join("\n"),
 				vertexNormalDepth : [
 					"precision lowp float;",
 					"attribute vec3 vertex;",
@@ -381,7 +451,7 @@
 						"varying vec3 v_worldNormal;",
 						"varying float v_depth;",
 						"void main(){",
-						"	gl_FragColor = vec4( v_worldNormal * 0.5 + 0.5, v_depth );",
+						"	gl_FragColor = vec4( v_worldNormal * 0.5 + 0.5, 1.0 );",
 						"}"
 				].join('\n')
 			};
@@ -404,12 +474,12 @@
 					gl.compileShader( this.vertexShader );
 					var error = gl.getShaderInfoLog(this.vertexShader);
 					if (error.length > 0) {
-					  throw error;
+					  throw this.fragmentSource +"\n"+  error;
 					}
 					gl.compileShader( this.fragmentShader );
 					var error = gl.getShaderInfoLog(this.fragmentShader);
 					if (error.length > 0) {
-					  throw error;
+					  throw this.fragmentSource +"\n"+ error;
 					}
 					
 					gl.attachShader( this.program, this.vertexShader );
@@ -689,7 +759,6 @@
 					if(this.matrixNeedsUpdate == true){
 						this.localMatrix = Mat4FromTRS( this.position, this.rotation, this.scale );
 						if(this.parent != null){
-							//console.log("parent matrix "+this.parent.localToWorld);
 							this.localToWorld = MatMul( this.parent.localToWorld, this.localMatrix );
 						}else{
 							this.localToWorld = this.localMatrix;
@@ -731,6 +800,24 @@
 					this.fov = 90;
 					this.projectionMatrix = Mat4Perspective( this.fov, this.aspect, this.near, this.far );
 					this.viewMatrix = new Float32Array([ 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 ]);
+					this.freemove = false;
+				}
+				Update(){
+					super.Update();
+					if(this.freemove == true){
+						if(CORE.input.GetKeyHeld("KeyA")){
+							this.position[0] -= 0.1;
+						}
+						if(CORE.input.GetKeyHeld("KeyD")){
+							this.position[0] += 0.1;
+						}
+						if(CORE.input.GetKeyHeld("KeyW")){
+							this.position[2] += 0.1;
+						}
+						if(CORE.input.GetKeyHeld("KeyS")){
+							this.position[2] -= 0.1;
+						}
+					}
 				}
 				UpdateProjectionMatrix(){
 					this.aspect = canvas.height / canvas.width;
@@ -742,11 +829,89 @@
 					this.viewMatrix[12] *= -1;
 					this.viewMatrix[13] *= -1;
 					this.viewMatrix[14] *= 1;
-					
 					this.viewMatrix[2] *= -1;
 					this.viewMatrix[6] *= -1;
 					this.viewMatrix[10] *= -1;
 				}
+			};
+			
+			CORE.MeshLib = class MeshLib{
+				constructor(){
+					this.quad = new CORE.Mesh({
+						attributes : {
+							"vertex" : { data:new Float32Array([ -10,0,-10, 10,0,-10, 10,0,10, -10,0,10 ]) },
+							"normal" : { data:new Float32Array([ 0,1,0, 0,1,0, 0,1,0, 0,1,0  ])},
+							"uv0" : { size:2, data:new Float32Array([ 0,0, 1,0, 1,1, 0,1 ]) }
+						},
+						indices : new Uint16Array([ 0,1,2, 0,2,3 ])
+					});
+					this.cube = new CORE.Mesh({
+						attributes : {
+							"vertex" : { data : new Float32Array([
+								// Front face
+							  -1.0, -1.0,  1.0,
+							   1.0, -1.0,  1.0,
+							   1.0,  1.0,  1.0,
+							  -1.0,  1.0,  1.0,
+							  
+							  // Back face
+							  -1.0, -1.0, -1.0,
+							  -1.0,  1.0, -1.0,
+							   1.0,  1.0, -1.0,
+							   1.0, -1.0, -1.0,
+							  
+							  // Top face
+							  -1.0,  1.0, -1.0,
+							  -1.0,  1.0,  1.0,
+							   1.0,  1.0,  1.0,
+							   1.0,  1.0, -1.0,
+							  
+							  // Bottom face
+							  -1.0, -1.0, -1.0,
+							   1.0, -1.0, -1.0,
+							   1.0, -1.0,  1.0,
+							  -1.0, -1.0,  1.0,
+							  
+							  // Right face
+							   1.0, -1.0, -1.0,
+							   1.0,  1.0, -1.0,
+							   1.0,  1.0,  1.0,
+							   1.0, -1.0,  1.0,
+							  
+							  // Left face
+							  -1.0, -1.0, -1.0,
+							  -1.0, -1.0,  1.0,
+							  -1.0,  1.0,  1.0,
+							  -1.0,  1.0, -1.0,
+							])},
+							"normal" : {data : new Float32Array([
+								 0, 0, 1,	 0, 0, 1,	 0, 0, 1,	 0, 0, 1,
+								 0, 0,-1,	 0, 0,-1,	 0, 0,-1,	 0, 0,-1,
+								 0, 1, 0,	 0, 1, 0,	 0, 1, 0,	 0, 1, 0,
+								 0,-1, 0,	 0,-1, 0,	 0,-1, 0,	 0,-1, 0,
+								 1, 0, 0,	 1, 0, 0,	 1, 0, 0,	 1, 0, 0,
+								-1, 0, 0,	-1, 0, 0,	-1, 0, 0,	-1, 0, 0
+							])},
+							"uv0" : {size : 2, data : new Float32Array([
+								0,0,	1,0,	1,1,	0,1,
+								0,0,	0,1,	1,1,	1,0,
+								0,0,	0,1,	1,1,	1,0,
+								0,0,	1,0,	1,1,	0,1,
+								0,0,	1,0,	1,1,	0,1,
+								0,0,	0,1,	1,1,	1,0
+							])}
+						},
+						indices : new Uint16Array([
+							0,  2,  1,      0,  3,  2,    // front
+							4,  6,  5,      4,  7,  6,    // back
+							8,  10,  9,     8,  11, 10,   // top
+							12, 14, 13,     12, 15, 14,   // bottom
+							16, 18, 17,     16, 19, 18,   // right
+							20, 22, 21,     20, 23, 22   // left
+						])
+					});
+				}
+				
 			};
 		</script>
 	</head>
@@ -754,101 +919,23 @@
 		<script>
 			CORE.Init();
 			
-			var plane = new CORE.Mesh({
-				attributes : {
-					"vertex" : { data:new Float32Array([ -10,0,-10, 10,0,-10, 10,0,10, -10,0,10 ]) },
-					"normal" : { data:new Float32Array([ 0,1,0, 0,1,0, 0,1,0, 0,1,0  ])},
-					"uv0" : { size:2, data:new Float32Array([ 0,0, 1,0, 1,1, 0,1 ]) }
-				},
-				indices : new Uint16Array([ 0,1,2, 0,2,3 ])
-			});
-			
-			var cube = new CORE.Mesh({
-				attributes : {
-					"vertex" : { data : new Float32Array([
-						// Front face
-					  -1.0, -1.0,  1.0,
-					   1.0, -1.0,  1.0,
-					   1.0,  1.0,  1.0,
-					  -1.0,  1.0,  1.0,
-					  
-					  // Back face
-					  -1.0, -1.0, -1.0,
-					  -1.0,  1.0, -1.0,
-					   1.0,  1.0, -1.0,
-					   1.0, -1.0, -1.0,
-					  
-					  // Top face
-					  -1.0,  1.0, -1.0,
-					  -1.0,  1.0,  1.0,
-					   1.0,  1.0,  1.0,
-					   1.0,  1.0, -1.0,
-					  
-					  // Bottom face
-					  -1.0, -1.0, -1.0,
-					   1.0, -1.0, -1.0,
-					   1.0, -1.0,  1.0,
-					  -1.0, -1.0,  1.0,
-					  
-					  // Right face
-					   1.0, -1.0, -1.0,
-					   1.0,  1.0, -1.0,
-					   1.0,  1.0,  1.0,
-					   1.0, -1.0,  1.0,
-					  
-					  // Left face
-					  -1.0, -1.0, -1.0,
-					  -1.0, -1.0,  1.0,
-					  -1.0,  1.0,  1.0,
-					  -1.0,  1.0, -1.0,
-					])},
-					"normal" : {data : new Float32Array([
-						 0, 0, 1,	 0, 0, 1,	 0, 0, 1,	 0, 0, 1,
-						 0, 0,-1,	 0, 0,-1,	 0, 0,-1,	 0, 0,-1,
-						 0, 1, 0,	 0, 1, 0,	 0, 1, 0,	 0, 1, 0,
-						 0,-1, 0,	 0,-1, 0,	 0,-1, 0,	 0,-1, 0,
-						 1, 0, 0,	 1, 0, 0,	 1, 0, 0,	 1, 0, 0,
-						-1, 0, 0,	-1, 0, 0,	-1, 0, 0,	-1, 0, 0
-					])},
-					"uv0" : {size : 2, data : new Float32Array([
-						0,0,	1,0,	1,1,	0,1,
-						0,0,	0,1,	1,1,	1,0,
-						0,0,	0,1,	1,1,	1,0,
-						0,0,	1,0,	1,1,	0,1,
-						0,0,	1,0,	1,1,	0,1,
-						0,0,	0,1,	1,1,	1,0
-					])}
-				},
-				indices : new Uint16Array([
-					0,  2,  1,      0,  3,  2,    // front
-					4,  6,  5,      4,  7,  6,    // back
-					8,  10,  9,     8,  11, 10,   // top
-					12, 14, 13,     12, 15, 14,   // bottom
-					16, 18, 17,     16, 19, 18,   // right
-					20, 22, 21,     20, 23, 22   // left
-				])
-			});
-
 			var material = new CORE.Material();
 			material.uniforms["albedoTexture"] = { type:CORE.UNIFORM_TEX, value: new CORE.Texture().Load( "../assets/textures/octostoneAlbedo.png" ).GLTexture };
-			var planeObj = new CORE.Obj( plane, material );
+			var planeObj = new CORE.Obj( CORE.meshLib.quad, material );
 			planeObj.position[1] = -1;
 			
 			console.log(material.uniforms);
 			
-			var cubeObj = new CORE.Obj( cube, material );
-			var cubeObj2 = new CORE.Obj( cube, material );
+			var cubeObj = new CORE.Obj( CORE.meshLib.cube, material );
+			var cubeObj2 = new CORE.Obj( CORE.meshLib.cube, material );
 			cubeObj2.position[0] = 2;
 			cubeObj2.scale.set([0.2,0.2,0.2]);
-			cubeObj.onupdate = function(){
-				this.rotation = QuatFromEuler( [-CORE.time / 1000, CORE.time / 1000, 0] );
-				this.position[1] = Math.sin( CORE.time / 1000 ) + 1;
-			};
+			
 			
 			cubeObj2.onupdate = function(){
 				this.rotation = QuatFromEuler( [0, -CORE.time / 1000, 0] );
+				//console.log(CORE.input.keys);
 			};
-			//planeObj.rotation = QuatFromEuler( [0, 0, 0] );
 			planeObj.SetMatrixDirty();
 			
 			CORE.scene.Add( cubeObj );
@@ -857,11 +944,12 @@
 			
 			CORE.scene.Add( planeObj );
 			
+			CORE.scene.mainCamera.freemove = true;
+			
 			CORE.scene.mainCamera.position[2] = -5;
 			CORE.scene.mainCamera.position[1] = 0;
 			CORE.scene.mainCamera.RecalculateMatrix();
 			
-			//planeObj.visible = false;
 		</script>
 	</body>
 </html>
