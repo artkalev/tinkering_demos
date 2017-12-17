@@ -16,309 +16,296 @@
 			// matrix3x3 = Float32Array([ 1,0,0, 0,1,0, 0,0,1 ])
 			// matrix4x4 = Float32Array([ 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 ])
 			
-			// VECTOR OPS
-			// vector operations assume same length vectors!
-			function VecAdd(a,b){ for(var i = 0; i < a.length; i++){ a[i] += b[i]; } return a; }
-			function VecSub(a,b){ for(var i = 0; i < a.length; i++){ a[i] -= b[i]; } return a; }
-			function VecMul(a,b){ for(var i = 0; i < a.length; i++){ a[i] *= b[i]; } return a; }
-			function VecDiv(a,b){ for(var i = 0; i < a.length; i++){ a[i] /= b[i]; } return a; }
-			function VecLengthSqr(v){ var s = 0; for(var i=0; i < v.length; i++){ s += v[i]*v[i]; } return s; }
-			function VecLength(v){ var s = 0; for(var i=0; i < v.length; i++){ s += v[i]*v[i]; } return Math.sqrt(s); }
-			function VecNormalize(v){ var l = VecLength(v); for(var i = 0; i < v.length; i++){ v[i] /= l; } return v; }
-			function VecEqual(a,b){ for(var i = 0; i < a.length; i++){ if(a[i] != b[i]){ return false; } } return true; }
-			function Vec3Cross(a,b){ 
-				// i j k
-				return new Float32Array([
-					a[1]*b[2] - a[2]*b[1], 
-					a[2]*b[0] - a[0]*b[2],
-					a[0]*b[1] - a[1]*b[0] 
-				]);
+			// Math Classes
+			class Vec3{
+				constructor(){
+					this.data = null;
+					if(arguments.length == 0){
+						this.data = new Float32Array([0,0,0]);
+					}else if(arguments.length == 1){
+						this.data = new Float32Array([arguments[0].data]);
+					}else if(arguments.length == 3){
+						this.data = new Float32Array(arguments);
+					}
+					console.log(this);
+				}
+				get x(){ return this.data[0]; }
+				get y(){ return this.data[1]; }
+				get z(){ return this.data[2]; }
+				set x(value){ this.data[0] = value; }
+				set y(value){ this.data[1] = value; }
+				set z(value){ this.data[2] = value; }
+				
+				Set(x,y,z){ this.data.set([x,y,z]); }
+				LengthSqr(){ return this.data[0]*this.data[0] + this.data[1]*this.data[1] + this.data[2]*this.data[2]; }
+				Length(){ return Math.sqrt( this.LengthSqr() ); }
+				Add(other){
+					this.data[0] += other.data[0];
+					this.data[1] += other.data[1];
+					this.data[2] += other.data[2];
+					return this;
+				}
+				AddScalar(other){
+					this.data[0] += other;
+					this.data[1] += other;
+					this.data[2] += other;
+					return this;
+				}
+				Sub(other){
+					this.data[0] -= other.data[0];
+					this.data[1] -= other.data[1];
+					this.data[2] -= other.data[2];
+					return this;
+				}
+				SubScalar(other){
+					this.data[0] -= other;
+					this.data[1] -= other;
+					this.data[2] -= other;
+					return this;
+				}
+				Mul(other){
+					this.data[0] *= other.data[0];
+					this.data[1] *= other.data[1];
+					this.data[2] *= other.data[2];
+					return this;
+				}
+				MulScalar(other){
+					this.data[0] *= other;
+					this.data[1] *= other;
+					this.data[2] *= other;
+					return this;
+				}
+				Div(other){
+					this.data[0] /= other.data[0];
+					this.data[1] /= other.data[1];
+					this.data[2] /= other.data[2];
+					return this;
+				}
+				DivScalar(other){
+					this.data[0] /= other;
+					this.data[1] /= other;
+					this.data[2] /= other;
+					return this;
+				}
+				Normalize(){
+					var l = this.Length();
+					this.data[0] /= l;
+					this.data[1] /= l;
+					this.data[2] /= l;
+					return this;
+				}
+				Dot( other ){
+					return this.x*other.y + this.y*other.y + this.z*other.z;
+				}
+				Clone(){
+					return new Vec3( this );
+				}
 			}
-			function VecDir( a, b ){
-				var v = VecSub( a, b );
-				return VecNormalize( v );
+			
+			class Quat{
+				constructor(){
+					this.data = new Float32Array([0,0,0,1]);
+				}
+				get x(){ return this.data[0]; }
+				get y(){ return this.data[1]; }
+				get z(){ return this.data[2]; }
+				get w(){ return this.data[3]; }
+				set x(value){ this.data[0] = value; }
+				set y(value){ this.data[1] = value; }
+				set z(value){ this.data[2] = value; }
+				set w(value){ this.data[3] = value; }
+				
+				SetAxisAngle( axis, angle ){
+					axis.Normalize();
+					var sa = Math.sin( angle / 2 );
+					this.x = axis.x * sa;
+					this.y = axis.y * sa;
+					this.z = axis.z * sa;
+					this.w = Math.cos( angle / 2 );
+				}
+				GetAxisAngle(){
+					var sqr = Math.sqrt( 1 - q.w*q.w );
+					return { 
+						axis : new Vec3( 
+							this.x / sqr, 
+							this.y / sqr, 
+							this.z / sqr 
+						), 
+						angle : 2 * Math.acos( q.w ) 
+					};
+				}
+				
+				SetEuler( attitude, heading, bank ){
+					var c1 = Math.cos( heading / 2 );
+					var c2 = Math.cos( attitude / 2 );
+					var c3 = Math.cos( bank / 2 );
+					var s1 = Math.sin( heading / 2 );
+					var s2 = Math.sin( attitude / 2 );
+					var s3 = Math.sin( bank / 2 );
+					this.w = c1 * c2 * c3 - s1 * s2 * s3;
+					this.x = s1 * s2 * c3 + c1 * c2 * s3;
+					this.y = s1 * c2 * c3 + c1 * s2 * s3;
+					this.z = c1 * s2 * c3 - s1 * c2 * s3;
+					return this;
+				}
+				GetEuler(){
+					// todo
+				}
+				
+				SetMatrix( m ){
+					// todo
+				}
+				GetMatrix(){
+					// todo
+				}
 			}
-			// QUATERNION OPS
-			function QuatFromMat3( a ){
-				var q = new Float32Array([0,0,0,0]);
-				var trace = a[0] + a[4] + a[8]; // I removed + 1.0f; see discussion with Ethan
-				if( trace > 0 ) {// I changed M_EPSILON to 0
-					var s = 0.5 / Math.sqrt(trace + 1.0);
-					q[3] = 0.25 / s;
-					q[0] = ( a[5] - a[7] ) * s;
-					q[1] = ( a[6] - a[2] ) * s;
-					q[2] = ( a[1] - a[3] ) * s;
-				} else {
-					if ( a[0] > a[4] && a[0] > a[8] ) {
-						var s = 2.0 * Math.sqrt( 1.0 + a[0] - a[4] - a[8]);
-						q.w = (a[5] - a[7] ) / s;
-						q.x = 0.25 * s;
-						q.y = (a[3] + a[1] ) / s;
-						q.z = (a[6] + a[2] ) / s;
-					} else if (a[4] > a[8]) {
-						var s = 2.0 * Math.sqrt( 1.0 + a[4] - a[0] - a[8]);
-						q.w = (a[6] - a[2] ) / s;
-						q.x = (a[3] + a[1] ) / s;
-						q.y = 0.25 * s;
-						q.z = (a[7] + a[5] ) / s;
-					} else {
-						var s = 2.0 * Math.sqrt( 1.0 + a[8] - a[0] - a[4] );
-						q.w = (a[1] - a[3] ) / s;
-						q.x = (a[6] + a[2] ) / s;
-						q.y = (a[7] + a[5] ) / s;
-						q.z = 0.25 * s;
+			
+			class Mat4{
+				constructor(){
+					this.data = null;
+					if(arguments.length == 16){
+						this.data = new Float32Array( arguments );
+					}else{
+						this.data = new Float32Array( 16 );
 					}
 				}
-				return q;
-			}
-			function QuatFromAxisAngle( v, a ){
-				// todo
-			}
-			function QuatFromEuler( v ){
-				// angles are in radians
-				var c1 = Math.cos(v[1]/2);
-				var s1 = Math.sin(v[1]/2);
-				var c2 = Math.cos(v[0]/2);
-				var s2 = Math.sin(v[0]/2);
-				var c3 = Math.cos(v[2]/2);
-				var s3 = Math.sin(v[2]/2);
-				var c1c2 = c1*c2;
-				var s1s2 = s1*s2;
-				return new Float32Array([
-					c1c2*c3 - s1s2*s3,
-					c1c2*s3 + s1s2*c3,
-					s1*c2*c3 + c1*s2*s3,
-					c1*s2*c3 - s1*c2*s3
-				]);
-			}
-			function QuatToEuler( q ){
-				// todo
-			}
-			function QuatLookRotation( target, up ){
-				// todo
-			}
-			
-			// MATRIX OPS
-			// matrix operations assume same size matrices!
-			// also matrices are in column major format for opengl compatibility!
-			// 4x4 matrix ref:
-			//      +----+----+----+----+                  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-			//  X>  |  0 |  4 |  8 | 12 |   Float32Array > | 0| 1| 2| 3| 4| 5| 6| 7| 8| 9|10|11|12|13|14|15|
-			//      +----+----+----+----+                  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-			//  Y>  |  1 |  5 |  9 | 13 |
-			//      +----+----+----+----+
-			//  Z>  |  2 |  6 | 10 | 14 |
-			//      +----+----+----+----+
-			//  W>  |  3 |  7 | 11 | 15 |
-			//      +----+----+----+----+
-			//
-			//	3x3 matrix ref:	
-			//		+----+----+----+
-			//	X>	|  0 |  3 |  6 |
-			//		+----+----+----+
-			//	Y>	|  1 |  4 |  7 |
-			//		+----+----+----+
-			//	Z>	|  2 |  5 |  8 |
-			//		+----+----+----+
-			
-			function MatMul( a, b ){
-				var m = new Float32Array(a.length);
-				for(var x = 0; x < 4; x++){
-					for(var y = 0; y < 4; y++){
-						for(var z = 0; z < 4; z++){
-							m[x+y*4] += a[x + z*4] * b[ z + y*4 ];
+				get m00(){ return this.data[ 0]; }
+				get m01(){ return this.data[ 4]; }
+				get m02(){ return this.data[ 8]; }
+				get m03(){ return this.data[12]; }
+				
+				get m10(){ return this.data[ 1]; }
+				get m11(){ return this.data[ 5]; }
+				get m12(){ return this.data[ 9]; }
+				get m13(){ return this.data[13]; }
+				
+				get m20(){ return this.data[ 2]; }
+				get m21(){ return this.data[ 6]; }
+				get m22(){ return this.data[10]; }
+				get m23(){ return this.data[14]; }
+				
+				get m30(){ return this.data[ 3]; }
+				get m31(){ return this.data[ 7]; }
+				get m32(){ return this.data[11]; }
+				get m33(){ return this.data[15]; }
+				
+				set m00(value){ this.data[ 0] = value; }
+				set m01(value){ this.data[ 4] = value; }
+				set m02(value){ this.data[ 8] = value; }
+				set m03(value){ this.data[12] = value; }
+				
+				set m10(value){ this.data[ 1] = value; }
+				set m11(value){ this.data[ 5] = value; }
+				set m12(value){ this.data[ 9] = value; }
+				set m13(value){ this.data[13] = value; }
+				
+				set m20(value){ this.data[ 2] = value; }
+				set m21(value){ this.data[ 6] = value; }
+				set m22(value){ this.data[10] = value; }
+				set m23(value){ this.data[14] = value; }
+				
+				set m30(value){ this.data[ 3] = value; }
+				set m31(value){ this.data[ 7] = value; }
+				set m32(value){ this.data[11] = value; }
+				set m33(value){ this.data[15] = value; }
+				
+				static FromQuat( q ){
+					var m = new Mat4();
+					m.m00 = 1 - 2*q.y*q.y - 2*q.z*q.z;
+					m.m01 = 	2*q.x*q.y - 2*q.z*q.w;
+					m.m02 = 	2*q.x*q.z + 2*q.y*q.w;
+					m.m03 = 0;
+					m.m10 = 	2*q.x*q.y + 2*q.z*q.w;
+					m.m11 = 1 - 2*q.x*q.x - 2*q.z*q.z;
+					m.m12 = 	2*q.y*q.z - 2*q.x*q.w;
+					m.m13 = 0;
+					m.m20 = 	2*q.x*q.z - 2*q.y*q.w;
+					m.m21 =		2*q.y*q.z + 2*q.x*q.w;
+					m.m22 =	1 - 2*q.x*q.x - 2*q.y*q.y;
+					m.m23 = 0;
+					m.m30 = 0; m.m31 = 0; m.m32 = 0; m.m33 = 1;
+					return m;
+				}
+				
+				static FromTranslaton( v ){
+					var m = new Mat4();
+					m.m03 = v.x;
+					m.m13 = v.y;
+					m.m23 = v.z;
+				}
+				
+				AddTranslation( v ){
+					this.m03 += v.x;
+					this.m13 += v.y;
+					this.m23 += v.z;
+				}
+				
+				GetTranslation(){
+					return new Vec3( this.m03, this.m13, this.m23 );
+				}
+				
+				Identity(){
+					this.m00 = 1;	this.m01 = 0;	this.m02 = 0;	this.m03 = 0;
+					this.m10 = 0;	this.m11 = 1;	this.m12 = 0;	this.m13 = 0;
+					this.m20 = 0;	this.m21 = 0;	this.m22 = 1;	this.m23 = 0;
+					this.m30 = 0;	this.m31 = 0;	this.m32 = 0;	this.m33 = 1;
+					return this;
+				}
+				
+				Mul( other ){
+					var n = new Float32Array(16);
+					for(var x = 0; x < 4; x++){
+						for(var y = 0; y < 4; y++){
+							for(var z = 0; z < 4; z++){
+								n[x+y*4] += this.data[x+z*4] * other.data[z+y*4];
+							}
 						}
 					}
+					this.data = n;
+					return this;
 				}
-				return m;
-			}
-			function Mat3FromQuat( q ){
-				var q = VecNormalize(q);
-				var m = new Float32Array([
-					1-2*q[1]*q[1] - 2*q[2]*q[2] , 2*q[0]*q[1] - 2*q[2]*q[3] , 2*q[0]*q[2] + 2*q[1]*q[3],
-					2*q[0]*q[1] + 2*q[2]*q[3]   , 1-2*q[0]*q[0]-2*q[2]*q[2] , 2*q[1]*q[2]-2*q[0]*q[3],
-					2*q[0]*q[z]-2*q[1]*q[3]     , 2*q[1]*q[2]+2*q[0]*q[3]   , 1-2*q[0]*q[0]-2*q[1]*q[1]
-				]);
-				return m;
-			}
-			function Mat3FromLook( forward, up ){
-				var up = up || [ 0, 1, 0 ];
-				var right = Vec3Cross( up, forward );
 				
-				return new Float32Array([
-					-right[0], right[1], right[2],
-					-up[0], up[1], up[2],
-					-forward[0], forward[1], forward[2]
-				]);
-			}
-			function Mat4FromQuat( q ){
-				var q = VecNormalize(q);
-
-				var m = new Float32Array([
-					1-2*q[1]*q[1] - 2*q[2]*q[2] , 2*q[0]*q[1] + 2*q[2]*q[3] , 2*q[0]*q[2]-2*q[1]*q[3] , 0,
-					2*q[0]*q[1] - 2*q[2]*q[3]   , 1-2*q[0]*q[0]-2*q[2]*q[2] , 2*q[1]*q[2]+2*q[0]*q[3]  , 0,
-					2*q[0]*q[2] + 2*q[1]*q[3]    , 2*q[1]*q[2]-2*q[0]*q[3]  , 1-2*q[0]*q[0]-2*q[1]*q[1] , 0,
-					0,0,0,1
-				]);
-				return m;
-			}
-			
-			function Mat4FromTRS( translation, rotation, scale ){
-				var T = new Float32Array([
-					1,0,0,0,
-					0,1,0,0,
-					0,0,1,0,
-					translation[0],translation[1],translation[2],1
-				]);
-				var R = Mat4FromQuat(rotation);
-				var S = new Float32Array([
-					scale[0],0,0,0,
-					0,scale[1],0,0,
-					0,0,scale[2],0,
-					0,0,0,1
-				]);
-				return MatMul( T, MatMul( R,S ) );
-			}
-			function Mat4Invert(m){
-				var inv = new Float32Array(16);
-				var det = 0;
-				var i = 0;
-
-				inv[0] = m[5]  * m[10] * m[15] - 
-						 m[5]  * m[11] * m[14] - 
-						 m[9]  * m[6]  * m[15] + 
-						 m[9]  * m[7]  * m[14] +
-						 m[13] * m[6]  * m[11] - 
-						 m[13] * m[7]  * m[10];
-
-				inv[4] = -m[4]  * m[10] * m[15] + 
-						  m[4]  * m[11] * m[14] + 
-						  m[8]  * m[6]  * m[15] - 
-						  m[8]  * m[7]  * m[14] - 
-						  m[12] * m[6]  * m[11] + 
-						  m[12] * m[7]  * m[10];
-
-				inv[8] = m[4]  * m[9] * m[15] - 
-						 m[4]  * m[11] * m[13] - 
-						 m[8]  * m[5] * m[15] + 
-						 m[8]  * m[7] * m[13] + 
-						 m[12] * m[5] * m[11] - 
-						 m[12] * m[7] * m[9];
-
-				inv[12] = -m[4]  * m[9] * m[14] + 
-						   m[4]  * m[10] * m[13] +
-						   m[8]  * m[5] * m[14] - 
-						   m[8]  * m[6] * m[13] - 
-						   m[12] * m[5] * m[10] + 
-						   m[12] * m[6] * m[9];
-
-				inv[1] = -m[1]  * m[10] * m[15] + 
-						  m[1]  * m[11] * m[14] + 
-						  m[9]  * m[2] * m[15] - 
-						  m[9]  * m[3] * m[14] - 
-						  m[13] * m[2] * m[11] + 
-						  m[13] * m[3] * m[10];
-
-				inv[5] = m[0]  * m[10] * m[15] - 
-						 m[0]  * m[11] * m[14] - 
-						 m[8]  * m[2] * m[15] + 
-						 m[8]  * m[3] * m[14] + 
-						 m[12] * m[2] * m[11] - 
-						 m[12] * m[3] * m[10];
-
-				inv[9] = -m[0]  * m[9] * m[15] + 
-						  m[0]  * m[11] * m[13] + 
-						  m[8]  * m[1] * m[15] - 
-						  m[8]  * m[3] * m[13] - 
-						  m[12] * m[1] * m[11] + 
-						  m[12] * m[3] * m[9];
-
-				inv[13] = m[0]  * m[9] * m[14] - 
-						  m[0]  * m[10] * m[13] - 
-						  m[8]  * m[1] * m[14] + 
-						  m[8]  * m[2] * m[13] + 
-						  m[12] * m[1] * m[10] - 
-						  m[12] * m[2] * m[9];
-
-				inv[2] = m[1]  * m[6] * m[15] - 
-						 m[1]  * m[7] * m[14] - 
-						 m[5]  * m[2] * m[15] + 
-						 m[5]  * m[3] * m[14] + 
-						 m[13] * m[2] * m[7] - 
-						 m[13] * m[3] * m[6];
-
-				inv[6] = -m[0]  * m[6] * m[15] + 
-						  m[0]  * m[7] * m[14] + 
-						  m[4]  * m[2] * m[15] - 
-						  m[4]  * m[3] * m[14] - 
-						  m[12] * m[2] * m[7] + 
-						  m[12] * m[3] * m[6];
-
-				inv[10] = m[0]  * m[5] * m[15] - 
-						  m[0]  * m[7] * m[13] - 
-						  m[4]  * m[1] * m[15] + 
-						  m[4]  * m[3] * m[13] + 
-						  m[12] * m[1] * m[7] - 
-						  m[12] * m[3] * m[5];
-
-				inv[14] = -m[0]  * m[5] * m[14] + 
-						   m[0]  * m[6] * m[13] + 
-						   m[4]  * m[1] * m[14] - 
-						   m[4]  * m[2] * m[13] - 
-						   m[12] * m[1] * m[6] + 
-						   m[12] * m[2] * m[5];
-
-				inv[3] = -m[1] * m[6] * m[11] + 
-						  m[1] * m[7] * m[10] + 
-						  m[5] * m[2] * m[11] - 
-						  m[5] * m[3] * m[10] - 
-						  m[9] * m[2] * m[7] + 
-						  m[9] * m[3] * m[6];
-
-				inv[7] = m[0] * m[6] * m[11] - 
-						 m[0] * m[7] * m[10] - 
-						 m[4] * m[2] * m[11] + 
-						 m[4] * m[3] * m[10] + 
-						 m[8] * m[2] * m[7] - 
-						 m[8] * m[3] * m[6];
-
-				inv[11] = -m[0] * m[5] * m[11] + 
-						   m[0] * m[7] * m[9] + 
-						   m[4] * m[1] * m[11] - 
-						   m[4] * m[3] * m[9] - 
-						   m[8] * m[1] * m[7] + 
-						   m[8] * m[3] * m[5];
-
-				inv[15] = m[0] * m[5] * m[10] - 
-						  m[0] * m[6] * m[9] - 
-						  m[4] * m[1] * m[10] + 
-						  m[4] * m[2] * m[9] + 
-						  m[8] * m[1] * m[6] - 
-						  m[8] * m[2] * m[5];
-
-				det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
-
-				det = 1.0 / det;
+				MulReverse( other ){
+					var n = new Float32Array(16);
+					for(var x = 0; x < 4; x++){
+						for(var y = 0; y < 4; y++){
+							for(var z = 0; z < 4; z++){
+								n[x+y*4] += other.data[x+z*4] * this.data[z+y*4];
+							}
+						}
+					}
+					this.data = n;
+					return this;
+				}
 				
-				var invOut = new Float32Array(16);
-				for (i = 0; i < 16; i++)
-					invOut[i] = inv[i] * det;
-
-				return invOut;
+				SetTRS( translation, rotation, scale ){
+					
+				}
+				
+				PerspectiveProj( fov, aspect, near, far ){
+					this.Identity();
+					var scale = 1 / Math.tan(fov * 0.5 * Math.PI / 180);
+					this.m00 = scale * aspect;
+					this.m11 = scale;
+					this.m22 = -far / (far - near);
+					this.m23 = -far * near / (far - near);
+					this.m32 = -1;
+					this.m33 = 0;
+					return this;
+				}
+				
+				Copy( other ){
+					this.data.set( other.data );
+					return this;
+				}
+				
+				Clone(){
+					var m = new Mat4();
+					m.data.set( this.data );
+					return m;
+				}
 			}
-			
-			function Mat4Perspective( fov, aspect, near, far ){
-				var M = new Float32Array([0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]);
-				var scale = 1 / Math.tan(fov * 0.5 * Math.PI / 180); 
-				M[0] = scale * aspect;
-				M[5] = scale;
-				M[10] = -far / (far - near);
-				M[14] = -far * near / (far - near);
-				M[11] = -1;
-				M[15] = 0;
-				return M;
-			}
-			
+	
 			function isPowerOf2(value) {
 				return (value & (value - 1)) == 0;
 			}
@@ -752,14 +739,8 @@
 				constructor( mesh, material ){
 					this.name = name;
 					this.scene = null;
-					this._oldPosition = new Float32Array([0,0,0]);
-					this._oldRotation = new Float32Array([0,0,0,1]);
-					this._oldScale = new Float32Array([1,1,1]);
-					this.position = new Float32Array([0,0,0]);
-					this.rotation = new Float32Array([0,0,0,1]);
-					this.scale = new Float32Array([1,1,1]);
-					this.localMatrix = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
-					this.localToWorld = new Float32Array([ 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 ]);
+					this.localMatrix = new Mat4().Identity();
+					this.localToWorldMatrix = new Mat4().Identity();
 					this.parent = null;
 					this.children = [];
 					this.mesh = mesh || null;
@@ -777,12 +758,24 @@
 					this.ondestroy = function(){}; // todo
 					
 				}
-				SetMatrixDirty(){
-					this.matrixNeedsUpdate = true;
-					for(var i = 0; i < this.children.length; i++){
-						this.children[i].SetMatrixDirty();
+				Translate( v, worldSpace ){
+					if(worldSpace){
+					
+					}else{
+						this.localMatrix.AddTranslation( v );
 					}
+					this.matrixNeedsUpdate = true;
 				}
+				TranslateX( s, worldSpace ){ this.Translate( new Vec3(s, 0, 0), worldSpace ); }
+				TranslateY( s, worldSpace ){ this.Translate( new Vec3(0, s, 0), worldSpace ); }
+				TranslateZ( s, worldSpace ){ this.Translate( new Vec3(0, 0, s), worldSpace ); }
+				Rotate( x,y,z ){
+					this.localMatrix.Mul( Mat4.FromQuat( new Quat().SetEuler( x,y,z ) ) );
+					this.matrixNeedsUpdate = true;
+				}
+				RotateX( s ){ this.Rotate( s,0,0 ); }
+				RotateY( s ){ this.Rotate( 0,s,0 ); }
+				RotateZ( s ){ this.Rotate( 0,0,s ); }
 				Add( obj ){
 					this.children.push(obj);
 					obj.parent = this;
@@ -798,33 +791,23 @@
 						this._onstartCalled = true;
 					}
 					this.onupdate();
-					
-					if( !VecEqual( this._oldPosition, this.position ) || !VecEqual( this._oldRotation, this.rotation ) || !VecEqual( this._oldScale, this.scale )){
-						this.SetMatrixDirty();
-					}
 					this.RecalculateMatrix();
-					
-					this._oldPosition.set( this.position );
-					this._oldRotation.set( this.rotation );
-					this._oldScale.set( this.scale );
 				}
 				Draw(){
 					if(this.mesh != null){
 						this.material.Use();
-						this.material.SetUniform( "modelMatrix", CORE.UNIFORM_MAT4, this.localToWorld );
-						this.material.SetUniform( "projectionMatrix", CORE.UNIFORM_MAT4, CORE.scene.mainCamera.projectionMatrix );
-						this.material.SetUniform( "viewMatrix", CORE.UNIFORM_MAT4, CORE.scene.mainCamera.viewMatrix );
+						this.material.SetUniform( "modelMatrix", CORE.UNIFORM_MAT4, this.localToWorldMatrix.data );
+						this.material.SetUniform( "projectionMatrix", CORE.UNIFORM_MAT4, CORE.scene.mainCamera.projectionMatrix.data );
+						this.material.SetUniform( "viewMatrix", CORE.UNIFORM_MAT4, CORE.scene.mainCamera.viewMatrix.data );
 						gl.cullFace( gl.BACK );
 						this.mesh.Draw();
 					}
 				}
 				RecalculateMatrix(){
 					if(this.matrixNeedsUpdate == true){
-						this.localMatrix = Mat4FromTRS( this.position, this.rotation, this.scale );
+						this.localToWorldMatrix.Copy( this.localMatrix );
 						if(this.parent != null){
-							this.localToWorld = MatMul( this.parent.localToWorld, this.localMatrix );
-						}else{
-							this.localToWorld = this.localMatrix;
+							this.localToWorldMatrix.Mul( this.parent.localToWorldMatrix );
 						}
 					}
 					this.matrixNeedsUpdate = false;
@@ -861,8 +844,8 @@
 					this.far = 100.0;
 					this.aspect = 1;
 					this.fov = 90;
-					this.projectionMatrix = Mat4Perspective( this.fov, this.aspect, this.near, this.far );
-					this.viewMatrix = new Float32Array([ 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 ]);
+					this.projectionMatrix = new Mat4().PerspectiveProj( this.fov, this.aspect, this.near, this.far );
+					this.viewMatrix = new Mat4().Identity();
 					this.freemove = false;
 				}
 				Update(){
@@ -880,22 +863,23 @@
 						if(CORE.input.GetKeyHeld("KeyS")){
 							this.position[2] -= 0.1;
 						}
-						this.rotation = QuatFromMat3( Mat3FromLook(VecDir( [0,0,0], this.position )) );
+						//this.rotation = QuatFromMat3( Mat3FromLook(VecDir( [0,0,0], this.position )) );
+						this.rotation = QuatLookRotation( this.position, [0,0,0], [0,1,0] );
 					}
 				}
 				UpdateProjectionMatrix(){
 					this.aspect = canvas.height / canvas.width;
-					this.projectionMatrix = Mat4Perspective( this.fov, this.aspect, this.near, this.far );
+					this.projectionMatrix.PerspectiveProj( this.fov, this.aspect, this.near, this.far );
 				}
 				RecalculateMatrix(){
 					super.RecalculateMatrix();
-					this.viewMatrix.set( this.localToWorld );
-					this.viewMatrix[12] *= -1;
-					this.viewMatrix[13] *= -1;
-					this.viewMatrix[14] *= 1;
-					this.viewMatrix[2] *= -1;
-					this.viewMatrix[6] *= -1;
-					this.viewMatrix[10] *= -1;
+					this.viewMatrix.Copy( this.localToWorldMatrix );
+					this.viewMatrix.m20 *= -1;
+					this.viewMatrix.m21 *= -1;
+					this.viewMatrix.m22 *= -1;
+					//this.viewMatrix.m03 *= -1;
+					this.viewMatrix.m13 *= -1;
+					//this.viewMatrix.m23 *= -1;
 				}
 			};
 			
@@ -985,34 +969,24 @@
 			
 			var material = new CORE.Material();
 			material.uniforms["albedoTexture"] = { type:CORE.UNIFORM_TEX, value: new CORE.Texture().Load( "../assets/textures/octostoneAlbedo.png" ).GLTexture };
+			
 			var planeObj = new CORE.Obj( CORE.meshLib.quad, material );
-			planeObj.position[1] = -1;
-			
-			console.log(material.uniforms);
-			
-			var cubeObj = new CORE.Obj( CORE.meshLib.cube, material );
-			var cubeObj2 = new CORE.Obj( CORE.meshLib.cube, material );
-			cubeObj2.position[0] = 2;
-			cubeObj2.scale.set([0.2,0.2,0.2]);
-			
-			
-			cubeObj2.onupdate = function(){
-				this.rotation = QuatFromEuler( [0, -CORE.time / 1000, 0] );
-				//console.log(CORE.input.keys);
-			};
-			planeObj.SetMatrixDirty();
-			
-			CORE.scene.Add( cubeObj );
-			
-			cubeObj.Add( cubeObj2 );
-			
 			CORE.scene.Add( planeObj );
 			
-			CORE.scene.mainCamera.freemove = true;
+			var cubeObj = new CORE.Obj( CORE.meshLib.cube, material );
+			cubeObj.onupdate = function(){
+				this.RotateY( 0.1 );
+				this.SetLocalX( Math.sin( CORE.time ) );
+			};
+			CORE.scene.Add( cubeObj );
 			
-			CORE.scene.mainCamera.position[2] = -5;
-			CORE.scene.mainCamera.position[1] = 0;
-			CORE.scene.mainCamera.RecalculateMatrix();
+			
+			CORE.scene.mainCamera.TranslateY( 5 );
+			CORE.scene.mainCamera.TranslateZ( -20 );
+			
+			
+			
+			console.log( CORE.scene );
 			
 		</script>
 	</body>
