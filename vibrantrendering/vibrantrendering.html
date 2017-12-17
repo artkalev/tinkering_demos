@@ -26,8 +26,51 @@
 			function VecLength(v){ var s = 0; for(var i=0; i < v.length; i++){ s += v[i]*v[i]; } return Math.sqrt(s); }
 			function VecNormalize(v){ var l = VecLength(v); for(var i = 0; i < v.length; i++){ v[i] /= l; } return v; }
 			function VecEqual(a,b){ for(var i = 0; i < a.length; i++){ if(a[i] != b[i]){ return false; } } return true; }
-			
+			function Vec3Cross(a,b){ 
+				// i j k
+				return new Float32Array([
+					a[1]*b[2] - a[2]*b[1], 
+					a[2]*b[0] - a[0]*b[2],
+					a[0]*b[1] - a[1]*b[0] 
+				]);
+			}
+			function VecDir( a, b ){
+				var v = VecSub( a, b );
+				return VecNormalize( v );
+			}
 			// QUATERNION OPS
+			function QuatFromMat3( a ){
+				var q = new Float32Array([0,0,0,0]);
+				var trace = a[0] + a[4] + a[8]; // I removed + 1.0f; see discussion with Ethan
+				if( trace > 0 ) {// I changed M_EPSILON to 0
+					var s = 0.5 / Math.sqrt(trace + 1.0);
+					q[3] = 0.25 / s;
+					q[0] = ( a[5] - a[7] ) * s;
+					q[1] = ( a[6] - a[2] ) * s;
+					q[2] = ( a[1] - a[3] ) * s;
+				} else {
+					if ( a[0] > a[4] && a[0] > a[8] ) {
+						var s = 2.0 * Math.sqrt( 1.0 + a[0] - a[4] - a[8]);
+						q.w = (a[5] - a[7] ) / s;
+						q.x = 0.25 * s;
+						q.y = (a[3] + a[1] ) / s;
+						q.z = (a[6] + a[2] ) / s;
+					} else if (a[4] > a[8]) {
+						var s = 2.0 * Math.sqrt( 1.0 + a[4] - a[0] - a[8]);
+						q.w = (a[6] - a[2] ) / s;
+						q.x = (a[3] + a[1] ) / s;
+						q.y = 0.25 * s;
+						q.z = (a[7] + a[5] ) / s;
+					} else {
+						var s = 2.0 * Math.sqrt( 1.0 + a[8] - a[0] - a[4] );
+						q.w = (a[1] - a[3] ) / s;
+						q.x = (a[6] + a[2] ) / s;
+						q.y = (a[7] + a[5] ) / s;
+						q.z = 0.25 * s;
+					}
+				}
+				return q;
+			}
 			function QuatFromAxisAngle( v, a ){
 				// todo
 			}
@@ -69,6 +112,15 @@
 			//  W>  |  3 |  7 | 11 | 15 |
 			//      +----+----+----+----+
 			//
+			//	3x3 matrix ref:	
+			//		+----+----+----+
+			//	X>	|  0 |  3 |  6 |
+			//		+----+----+----+
+			//	Y>	|  1 |  4 |  7 |
+			//		+----+----+----+
+			//	Z>	|  2 |  5 |  8 |
+			//		+----+----+----+
+			
 			function MatMul( a, b ){
 				var m = new Float32Array(a.length);
 				for(var x = 0; x < 4; x++){
@@ -89,6 +141,16 @@
 				]);
 				return m;
 			}
+			function Mat3FromLook( forward, up ){
+				var up = up || [ 0, 1, 0 ];
+				var right = Vec3Cross( up, forward );
+				
+				return new Float32Array([
+					-right[0], right[1], right[2],
+					-up[0], up[1], up[2],
+					-forward[0], forward[1], forward[2]
+				]);
+			}
 			function Mat4FromQuat( q ){
 				var q = VecNormalize(q);
 
@@ -100,6 +162,7 @@
 				]);
 				return m;
 			}
+			
 			function Mat4FromTRS( translation, rotation, scale ){
 				var T = new Float32Array([
 					1,0,0,0,
@@ -817,6 +880,7 @@
 						if(CORE.input.GetKeyHeld("KeyS")){
 							this.position[2] -= 0.1;
 						}
+						this.rotation = QuatFromMat3( Mat3FromLook(VecDir( [0,0,0], this.position )) );
 					}
 				}
 				UpdateProjectionMatrix(){
