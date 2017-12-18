@@ -8,15 +8,6 @@
 			////                                    ////
 			////////////////////////////////////////////
 			
-			// 3D VECTOR AND MATRIX MATH ON Float32Array represented types
-			// vector2 = Float32Array([0,0])
-			// vector3 = Float32Array([0,0,0])
-			// vector4 = Float32Array([0,0,0,0])
-			// quaternion = Float32Array([0,0,0,1])
-			// matrix3x3 = Float32Array([ 1,0,0, 0,1,0, 0,0,1 ])
-			// matrix4x4 = Float32Array([ 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 ])
-			
-			// Math Classes
 			class Vec3{
 				constructor(){
 					this.data = null;
@@ -27,7 +18,6 @@
 					}else if(arguments.length == 3){
 						this.data = new Float32Array(arguments);
 					}
-					console.log(this);
 				}
 				get x(){ return this.data[0]; }
 				get y(){ return this.data[1]; }
@@ -100,6 +90,15 @@
 				Clone(){
 					return new Vec3( this );
 				}
+				Equals( other ){
+					if(this.x != other.x){ return false; }
+					if(this.y != other.y){ return false; }
+					if(this.z != other.z){ return false; }
+					return true;
+				}
+				Copy( other ){
+					this.data.set(other.data);
+				}
 			}
 			
 			class Quat{
@@ -123,11 +122,12 @@
 					this.z = axis.z * sa;
 					this.w = Math.cos( angle / 2 );
 				}
+				
 				GetAxisAngle(){
 					var sqr = Math.sqrt( 1 - q.w*q.w );
 					return { 
 						axis : new Vec3( 
-							this.x / sqr, 
+							this.x / sqr,
 							this.y / sqr, 
 							this.z / sqr 
 						), 
@@ -157,6 +157,16 @@
 				}
 				GetMatrix(){
 					// todo
+				}
+				Copy( other ){
+					this.data.set(other.data);
+				}
+				Equals( other ){
+					if(this.x != other.x){ return false; }
+					if(this.y != other.y){ return false; }
+					if(this.z != other.z){ return false; }
+					if(this.w != other.w){ return false; }
+					return true;
 				}
 			}
 			
@@ -227,21 +237,20 @@
 					return m;
 				}
 				
-				static FromTranslaton( v ){
-					var m = new Mat4();
+				static FromTranslation( v ){
+					var m = new Mat4().Identity();
 					m.m03 = v.x;
 					m.m13 = v.y;
 					m.m23 = v.z;
+					return m;
 				}
 				
-				AddTranslation( v ){
-					this.m03 += v.x;
-					this.m13 += v.y;
-					this.m23 += v.z;
-				}
-				
-				GetTranslation(){
-					return new Vec3( this.m03, this.m13, this.m23 );
+				static FromScale(v){
+					var m = new Mat4().Identity();
+					m.m00 = v.x;
+					m.m11 = v.y;
+					m.m22 = v.z;
+					return m;
 				}
 				
 				Identity(){
@@ -279,7 +288,18 @@
 				}
 				
 				SetTRS( translation, rotation, scale ){
+					this.Identity();
+					var T = Mat4.FromTranslation(translation);
+					var R = Mat4.FromQuat(rotation);
+					var S = Mat4.FromScale(scale);
 					
+					
+					this.Mul( T );
+					this.Mul( R );
+					this.Mul( S );
+					
+					
+					return this;
 				}
 				
 				PerspectiveProj( fov, aspect, near, far ){
@@ -317,6 +337,7 @@
 			/////////////////////////////////////////////
 			
 			var gl = null;
+			var ext = null;
 			var canvas = null;
 			var CORE = {};
 			
@@ -377,6 +398,8 @@
 			CORE._lastTime = 0;
 			CORE.currentGLProgram = null;
 			CORE.projectionNeedsUpdate = true;
+			CORE.frameBuffer = null;
+			CORE.frameBufferTextures = [];
 			// global vars end
 			CORE.Init = function(){
 				canvas = document.createElement("canvas");
@@ -390,17 +413,34 @@
 				
 				gl = canvas.getContext("webgl");
 				if(!gl){ alert("No WebGL support"); return; }
+				ext = gl.getExtension('WEBGL_draw_buffers');
+				if (!ext) { alert("No 'WEBGL_draw_buffers' extension support"); return; }
 				
-				CORE.meshLib = new CORE.MeshLib();
-				
-				CORE.framebuffer0 = new CORE.FrameBuffer();
-				CORE.framebuffer1 = new CORE.FrameBuffer();
-				CORE.framebuffer2 = new CORE.FrameBuffer();
-				CORE.framebuffer3 = new CORE.FrameBuffer();
-				
+				// INIT base GL stuff
 				gl.enable(gl.CULL_FACE);
 				gl.enable(gl.DEPTH_TEST);
 				
+				// INIT Deferred rendering framebuffers
+				
+				CORE.frameBufferTextures.push( CORE.GLTexture( 512, 512 ) );
+				CORE.frameBufferTextures.push( CORE.GLTexture( 512, 512 ) );
+				CORE.frameBufferTextures.push( CORE.GLTexture( 512, 512 ) );
+				CORE.frameBufferTextures.push( CORE.GLTexture( 512, 512 ) );
+				
+				var fb = gl.createFramebuffer();
+				gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+				gl.framebufferTexture2D(gl.FRAMEBUFFER, ext.COLOR_ATTACHMENT0_WEBGL, gl.TEXTURE_2D, CORE.frameBufferTextures[0], 0);
+				gl.framebufferTexture2D(gl.FRAMEBUFFER, ext.COLOR_ATTACHMENT1_WEBGL, gl.TEXTURE_2D, CORE.frameBufferTextures[1], 0);
+				gl.framebufferTexture2D(gl.FRAMEBUFFER, ext.COLOR_ATTACHMENT2_WEBGL, gl.TEXTURE_2D, CORE.frameBufferTextures[2], 0);
+				gl.framebufferTexture2D(gl.FRAMEBUFFER, ext.COLOR_ATTACHMENT2_WEBGL, gl.TEXTURE_2D, CORE.frameBufferTextures[3], 0);
+				CORE.frameBuffer = fb;
+
+				if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+					cnsole.log( "framebuffer error" );
+				}
+				
+				CORE.meshLib = new CORE.MeshLib();
+
 				CORE.scene = new CORE.Scene();
 				var cam = new CORE.Camera();
 				CORE.scene.Add(cam);
@@ -467,21 +507,7 @@
 			////////////////////
 			
 			CORE.commonShaders = {
-				vertexFallback : [
-					"precision lowp float;",
-					"attribute vec3 vertex;",
-					"uniform mat4 modelMatrix;",
-					"uniform mat4 viewMatrix;",
-					"uniform mat4 projectionMatrix;",
-					"void main(){",
-					"	gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4( vertex, 1.0 );",
-					"}"
-				].join("\n"),
-				fragmentFallback : [
-					"precision lowp float;",
-					"void main(){ gl_FragColor = vec4( 1.0, 0.0, 1.0, 1.0 ); }"
-				].join("\n"),
-				vertexNormalDepth : [
+				vertexDeferred : [
 					"precision lowp float;",
 					"attribute vec3 vertex;",
 					"attribute vec3 normal;",
@@ -493,17 +519,34 @@
 					"void main(){",
 					"	v_worldNormal = normalize( vec4( modelMatrix * vec4(normal,0.0) ).xyz );",
 					"	gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4( vertex, 1.0 );",
-					"	v_depth = gl_Position.w;",
 					"}"
 				].join('\n'),
-				fragmentNormalDepth : [
-						"precision lowp float;",
+				fragmentDeferred : [
+						"#extension GL_EXT_draw_buffers : require",
+						"precision mediump float;",
 						"varying vec3 v_worldNormal;",
-						"varying float v_depth;",
 						"void main(){",
-						"	gl_FragColor = vec4( v_worldNormal * 0.5 + 0.5, 1.0 );",
+						"	gl_FragData[0] = vec4( v_worldNormal * 0.5 + 0.5, 1.0 );", // normal depth
+						"	gl_FragData[1] = vec4( v_worldNormal * 0.5 + 0.5, 1.0 );", // albedo
+						"	gl_FragData[2] = vec4( v_worldNormal * 0.5 + 0.5, 1.0 );", // metallic smoothness
+						"	gl_FragData[3] = vec4( v_worldNormal * 0.5 + 0.5, 1.0 );", // metallic smoothness
 						"}"
-				].join('\n')
+				].join('\n'),
+				vertexScreen : [].join('\n'),
+				fragmentDeferredVisualize : [].join('\n')
+			};
+			
+			/////////////////
+			// GL wrappers //
+			/////////////////
+			CORE.GLTexture = function( width, height ){
+				var tex = gl.createTexture();
+				gl.bindTexture(gl.TEXTURE_2D, tex);
+				gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+				return tex;
 			};
 			
 			/////////////
@@ -549,12 +592,10 @@
 			CORE.Material = class Material{
 				constructor( p ){
 					this.activePass = 0;
-					this.passes = [						
-						new CORE.GLProgram( 
-							CORE.commonShaders.vertexNormalDepth, 
-							CORE.commonShaders.fragmentNormalDepth
-						)
-					];
+					this.program = new CORE.GLProgram( 
+						CORE.commonShaders.vertexDeferred, 
+						CORE.commonShaders.fragmentDeferred
+					);
 					
 					this.uniforms = {};
 					
@@ -573,10 +614,10 @@
 					this.GLFragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
 					this.GLProgram = gl.createProgram();
 				
-					gl.shaderSource(this.GLVertexShader, this.vertexShader);
+					gl.shaderSource(this.GLVertexShader, this.vertexDeferred);
 					gl.compileShader(this.GLVertexShader);
 					
-					gl.shaderSource(this.GLFragmentShader, this.fragmentShader);
+					gl.shaderSource(this.GLFragmentShader, this.fragmentDeferred);
 					gl.compileShader(this.GLFragmentShader);
 					
 					gl.attachShader( this.GLProgram, this.GLVertexShader);
@@ -585,7 +626,7 @@
 					gl.linkProgram(this.GLProgram);
 				}
 				SetUniform( name, type, value ){
-					var l = gl.getUniformLocation(this.passes[this.activePass].program, name);
+					var l = gl.getUniformLocation(this.program.program, name);
 					if(l != -1){
 						if(type == CORE.UNIFORM_MAT4){
 							gl.uniformMatrix4fv( l, false, value );
@@ -594,10 +635,18 @@
 						}
 					}
 				}
-				Use( passIndex ){
-					this.activePass = passIndex || 0;
-					this.passes[ passIndex || 0 ].Use();
-					CORE.currentGLProgram = this.passes[ passIndex || 0 ].program;
+				Use(){
+					ext.drawBuffersWEBGL([
+						ext.COLOR_ATTACHMENT0_WEBGL, // gl_FragData[0]
+						ext.COLOR_ATTACHMENT1_WEBGL, // gl_FragData[1]
+						ext.COLOR_ATTACHMENT2_WEBGL, // gl_FragData[2]
+						ext.COLOR_ATTACHMENT3_WEBGL // gl_FragData[2]
+						//ext.COLOR_ATTACHMENT3_WEBGL  // gl_FragData[3]
+					]);
+					this.program.Use();
+					gl.bindFramebuffer(gl.FRAMEBUFFER, CORE.frameBuffer);
+					
+					CORE.currentGLProgram = this.program.program;
 					for(var name in this.uniforms){
 						this.SetUniform( name, this.uniforms[name].type, this.uniforms[name].value );
 					}
@@ -739,8 +788,18 @@
 				constructor( mesh, material ){
 					this.name = name;
 					this.scene = null;
+					
+					this.oldPosition = new Vec3(0,0,0);
+					this.oldRotation = new Quat();
+					this.oldScale = new Vec3(1,1,1);
+					
+					this.position = new Vec3(0,0,0);
+					this.rotation = new Quat();
+					this.scale = new Vec3(1,1,1);
+					
 					this.localMatrix = new Mat4().Identity();
 					this.localToWorldMatrix = new Mat4().Identity();
+					
 					this.parent = null;
 					this.children = [];
 					this.mesh = mesh || null;
@@ -758,24 +817,6 @@
 					this.ondestroy = function(){}; // todo
 					
 				}
-				Translate( v, worldSpace ){
-					if(worldSpace){
-					
-					}else{
-						this.localMatrix.AddTranslation( v );
-					}
-					this.matrixNeedsUpdate = true;
-				}
-				TranslateX( s, worldSpace ){ this.Translate( new Vec3(s, 0, 0), worldSpace ); }
-				TranslateY( s, worldSpace ){ this.Translate( new Vec3(0, s, 0), worldSpace ); }
-				TranslateZ( s, worldSpace ){ this.Translate( new Vec3(0, 0, s), worldSpace ); }
-				Rotate( x,y,z ){
-					this.localMatrix.Mul( Mat4.FromQuat( new Quat().SetEuler( x,y,z ) ) );
-					this.matrixNeedsUpdate = true;
-				}
-				RotateX( s ){ this.Rotate( s,0,0 ); }
-				RotateY( s ){ this.Rotate( 0,s,0 ); }
-				RotateZ( s ){ this.Rotate( 0,0,s ); }
 				Add( obj ){
 					this.children.push(obj);
 					obj.parent = this;
@@ -791,7 +832,15 @@
 						this._onstartCalled = true;
 					}
 					this.onupdate();
+					if(
+						!this.position.Equals( this.oldPosition ) ||
+						!this.rotation.Equals( this.oldRotation ) ||
+						!this.scale.Equals( this.oldScale )
+					){ this.matrixNeedsUpdate = true; }
 					this.RecalculateMatrix();
+					this.oldPosition.Copy( this.position );
+					this.oldRotation.Copy( this.rotation );
+					this.oldScale.Copy( this.scale );
 				}
 				Draw(){
 					if(this.mesh != null){
@@ -805,6 +854,7 @@
 				}
 				RecalculateMatrix(){
 					if(this.matrixNeedsUpdate == true){
+						this.localMatrix.SetTRS( this.position, this.rotation, this.scale );
 						this.localToWorldMatrix.Copy( this.localMatrix );
 						if(this.parent != null){
 							this.localToWorldMatrix.Mul( this.parent.localToWorldMatrix );
@@ -968,23 +1018,21 @@
 			CORE.Init();
 			
 			var material = new CORE.Material();
-			material.uniforms["albedoTexture"] = { type:CORE.UNIFORM_TEX, value: new CORE.Texture().Load( "../assets/textures/octostoneAlbedo.png" ).GLTexture };
+			//material.uniforms["albedoTexture"] = { type:CORE.UNIFORM_TEX, value: new CORE.Texture().Load( "../assets/textures/octostoneAlbedo.png" ).GLTexture };
 			
 			var planeObj = new CORE.Obj( CORE.meshLib.quad, material );
 			CORE.scene.Add( planeObj );
 			
 			var cubeObj = new CORE.Obj( CORE.meshLib.cube, material );
+			cubeObj.position.y = 2;
 			cubeObj.onupdate = function(){
-				this.RotateY( 0.1 );
-				this.SetLocalX( Math.sin( CORE.time ) );
+				this.rotation.SetEuler( CORE.time/1000.0, CORE.time/1000.0, 0 );
+				this.position.x = Math.sin( CORE.time / 1000.0 );
+				this.scale.x = Math.sin(CORE.time/100)*0.5 + 1;
 			};
 			CORE.scene.Add( cubeObj );
 			
-			
-			CORE.scene.mainCamera.TranslateY( 5 );
-			CORE.scene.mainCamera.TranslateZ( -20 );
-			
-			
+			CORE.scene.mainCamera.position.Set( 0, 5, -20 );
 			
 			console.log( CORE.scene );
 			
