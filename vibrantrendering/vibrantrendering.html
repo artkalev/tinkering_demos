@@ -396,10 +396,7 @@
 			CORE.time = 0; // ms
 			CORE.deltaTime = 0;
 			CORE._lastTime = 0;
-			CORE.currentGLProgram = null;
-			CORE.projectionNeedsUpdate = true;
-			CORE.frameBuffer = null;
-			CORE.frameBufferTextures = [];
+			CORE.renderer = null;
 			// global vars end
 			CORE.Init = function(){
 				canvas = document.createElement("canvas");
@@ -416,28 +413,7 @@
 				ext = gl.getExtension('WEBGL_draw_buffers');
 				if (!ext) { alert("No 'WEBGL_draw_buffers' extension support"); return; }
 				
-				// INIT base GL stuff
-				gl.enable(gl.CULL_FACE);
-				gl.enable(gl.DEPTH_TEST);
-				
-				// INIT Deferred rendering framebuffers
-				
-				CORE.frameBufferTextures.push( CORE.GLTexture( 512, 512 ) );
-				CORE.frameBufferTextures.push( CORE.GLTexture( 512, 512 ) );
-				CORE.frameBufferTextures.push( CORE.GLTexture( 512, 512 ) );
-				CORE.frameBufferTextures.push( CORE.GLTexture( 512, 512 ) );
-				
-				var fb = gl.createFramebuffer();
-				gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-				gl.framebufferTexture2D(gl.FRAMEBUFFER, ext.COLOR_ATTACHMENT0_WEBGL, gl.TEXTURE_2D, CORE.frameBufferTextures[0], 0);
-				gl.framebufferTexture2D(gl.FRAMEBUFFER, ext.COLOR_ATTACHMENT1_WEBGL, gl.TEXTURE_2D, CORE.frameBufferTextures[1], 0);
-				gl.framebufferTexture2D(gl.FRAMEBUFFER, ext.COLOR_ATTACHMENT2_WEBGL, gl.TEXTURE_2D, CORE.frameBufferTextures[2], 0);
-				gl.framebufferTexture2D(gl.FRAMEBUFFER, ext.COLOR_ATTACHMENT2_WEBGL, gl.TEXTURE_2D, CORE.frameBufferTextures[3], 0);
-				CORE.frameBuffer = fb;
-
-				if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
-					cnsole.log( "framebuffer error" );
-				}
+				CORE.renderer = new CORE.Renderer();
 				
 				CORE.meshLib = new CORE.MeshLib();
 
@@ -472,28 +448,9 @@
 					CORE.scene.allObjects[i].Update();
 				}
 				CORE.input.Update();
-				CORE.Render();
+				CORE.renderer.Render();
 				CORE._lastTime = CORE.time;
 				
-			};
-			
-			CORE.Render = function(){
-				gl.viewport( 0, 0, canvas.width, canvas.height );
-				gl.clearColor( 0,0,0,1 );
-				gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT );
-				
-				CORE.RenderScene( CORE.scene, CORE.scene.mainCamera );
-			};
-			
-			CORE.RenderScene = function( scene, camera ){
-				// todo :
-				// Set view and projection matrix from camera
-				// todo find an algorithm to sort objects in depth
-				for( var i = 0; i < scene.allObjects.length; i++){
-					if(scene.allObjects[i].visible == true){
-						scene.allObjects[i].Draw();
-					}
-				}
 			};
 			
 			CORE.Resize = function(){
@@ -532,8 +489,19 @@
 						"	gl_FragData[3] = vec4( v_worldNormal * 0.5 + 0.5, 1.0 );", // metallic smoothness
 						"}"
 				].join('\n'),
-				vertexScreen : [].join('\n'),
-				fragmentDeferredVisualize : [].join('\n')
+				vertexScreen : [
+					"precision lowp float;",
+					"attribute vec3 vertex;",
+					"void main(){",
+					"	gl_Position = vec4( vertex, 1.0 );",
+					"}"
+				].join('\n'),
+				fragmentDeferredVisualize : [
+					"precision lowp float;",
+					"void main(){",
+					"	gl_FragColor = vec4( gl_FragCoord.xy, 0.0, 1.0 );",
+					"}"
+				].join('\n')
 			};
 			
 			/////////////////
@@ -552,6 +520,51 @@
 			/////////////
 			// classes //
 			/////////////
+			
+			CORE.Renderer = class{
+				constructor(){
+					this.framebuffer;
+					this.framebufferTextures = [];
+					this.deferredCombine = new CORE.GLScreenQuad( 
+						new CORE.GLProgram( 
+							CORE.commonShaders.vertexScreen,
+							CORE.commonShaders.fragmentDeferredVisualize
+						) 
+					);
+					
+					gl.enable(gl.CULL_FACE);
+					gl.enable(gl.DEPTH_TEST);
+					
+					this.framebufferTextures.push( CORE.GLTexture( 512, 512 ) );
+					this.framebufferTextures.push( CORE.GLTexture( 512, 512 ) );
+					this.framebufferTextures.push( CORE.GLTexture( 512, 512 ) );
+					this.framebufferTextures.push( CORE.GLTexture( 512, 512 ) );
+					
+					this.framebuffer = gl.createFramebuffer();
+					gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+					gl.framebufferTexture2D( gl.FRAMEBUFFER, ext.COLOR_ATTACHMENT0_WEBGL, gl.TEXTURE_2D, this.framebufferTextures[0], 0 );
+					gl.framebufferTexture2D( gl.FRAMEBUFFER, ext.COLOR_ATTACHMENT1_WEBGL, gl.TEXTURE_2D, this.framebufferTextures[1], 0 );
+					gl.framebufferTexture2D( gl.FRAMEBUFFER, ext.COLOR_ATTACHMENT2_WEBGL, gl.TEXTURE_2D, this.framebufferTextures[2], 0 );
+					gl.framebufferTexture2D( gl.FRAMEBUFFER, ext.COLOR_ATTACHMENT3_WEBGL, gl.TEXTURE_2D, this.framebufferTextures[3], 0 );
+					if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+						console.log( "framebuffer error" );
+					}
+				}
+				Render(){
+					
+					gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
+					for( var i = 0; i < CORE.scene.allObjects.length; i++){
+						if(CORE.scene.allObjects[i].visible == true){
+							CORE.scene.allObjects[i].Draw();
+						}
+					}
+					gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+					gl.viewport( 0, 0, canvas.width, canvas.height );
+					gl.clearColor( 0,0,0,1 );
+					gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT );
+					this.deferredCombine.Draw();
+				}
+			};
 			
 			CORE.GLProgram = class GLProgram{
 				constructor( vertexSource, fragmentSource ){
@@ -588,6 +601,29 @@
 					gl.useProgram( this.program );
 				}
 			};
+			
+			CORE.GLScreenQuad = class{
+				constructor( program ){
+					this.glProgram = program;
+					this.buffer = gl.createBuffer();
+					gl.bindBuffer( gl.ARRAY_BUFFER, this.buffer );
+					gl.bufferData( 
+						gl.ARRAY_BUFFER, 
+						new Float32Array([  
+							-1,-1, 0,    1, 1, 0,    1,-1, 0,
+							-1, 1, 0,    1, 1, 0,   -1,-1, 0
+						]), 
+						gl.STATIC_DRAW 
+					);
+				}
+				Draw(){
+					gl.useProgram( this.glProgram.program );
+					gl.bindBuffer( gl.ARRAY_BUFFER, this.buffer );
+					gl.enableVertexAttribArray(0);
+					gl.vertexAttribPointer( 0, 3, gl.FLOAT, false, 0, 0 );
+					gl.drawArrays(gl.TRIANGLES, 0, 6);
+				}
+			}
 			
 			CORE.Material = class Material{
 				constructor( p ){
@@ -636,16 +672,7 @@
 					}
 				}
 				Use(){
-					ext.drawBuffersWEBGL([
-						ext.COLOR_ATTACHMENT0_WEBGL, // gl_FragData[0]
-						ext.COLOR_ATTACHMENT1_WEBGL, // gl_FragData[1]
-						ext.COLOR_ATTACHMENT2_WEBGL, // gl_FragData[2]
-						ext.COLOR_ATTACHMENT3_WEBGL // gl_FragData[2]
-						//ext.COLOR_ATTACHMENT3_WEBGL  // gl_FragData[3]
-					]);
 					this.program.Use();
-					gl.bindFramebuffer(gl.FRAMEBUFFER, CORE.frameBuffer);
-					
 					CORE.currentGLProgram = this.program.program;
 					for(var name in this.uniforms){
 						this.SetUniform( name, this.uniforms[name].type, this.uniforms[name].value );
